@@ -6,6 +6,7 @@
   "popup.aria.actions": "Actions",
   "popup.aria.settings": "Paramètres",
   "popup.aria.groupingSettings": "Paramètres de regroupement",
+  "popup.aria.groupLocks": "Verrous de réduction des groupes",
   "popup.aria.proposedGroups": "Groupes suggérés",
   "popup.stats.tabs": "onglets",
   "popup.stats.groups": "groupes",
@@ -23,7 +24,7 @@
   "popup.setting.threshold": "Seuil",
   "popup.setting.minGroupSize": "Groupe min.",
   "popup.setting.ignorePinned": "Garder les onglets épinglés",
-  "popup.setting.collapseGroups": "Réduire les groupes",
+  "popup.setting.collapseGroups": "Réduire les groupes automatiquement",
   "popup.language.browser": "Navigateur",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -36,6 +37,10 @@
   "popup.scope.allWindows": "Toutes",
   "popup.groups.heading": "Groupes",
   "popup.groups.empty": "Aucun groupe de deux onglets ou plus pour le moment.",
+  "popup.groupLocks.heading": "Verrous de réduction",
+  "popup.groupLocks.hint": "Les groupes verrouillés restent ouverts quand la réduction auto est activée.",
+  "popup.groupLocks.empty": "Aucun groupe d'onglets dans cette portée.",
+  "popup.groupLocks.tabs": "{count} onglets",
   "popup.status.empty": "vide",
   "popup.status.found": "{count} trouvés",
   "popup.status.autoEnabled": "Mode auto activé, seuil : {threshold}",
@@ -92,6 +97,7 @@
   "reason.domain": "domaine partagé",
   "badge.autoTitle": "Anti-chaos tabs : regroupement automatique activé",
   "badge.suggestionsTitle": "Anti-chaos tabs : {count} groupes trouvés",
-  "error.tabGroupsUnavailable": "Les groupes d'onglets ne sont pas disponibles dans ce navigateur."
+  "error.tabGroupsUnavailable": "Les groupes d'onglets ne sont pas disponibles dans ce navigateur.",
+  "context.toggleCollapseLock": "Basculer le verrouillage de réduction auto pour ce groupe"
 };
 })(globalThis);

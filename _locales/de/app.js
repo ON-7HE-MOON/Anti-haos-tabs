@@ -6,6 +6,7 @@
   "popup.aria.actions": "Aktionen",
   "popup.aria.settings": "Einstellungen",
   "popup.aria.groupingSettings": "Gruppierungseinstellungen",
+  "popup.aria.groupLocks": "Einklapp-Sperren für Gruppen",
   "popup.aria.proposedGroups": "Vorgeschlagene Gruppen",
   "popup.stats.tabs": "Tabs",
   "popup.stats.groups": "Gruppen",
@@ -23,7 +24,7 @@
   "popup.setting.threshold": "Schwelle",
   "popup.setting.minGroupSize": "Min. Gruppe",
   "popup.setting.ignorePinned": "Angeheftete Tabs behalten",
-  "popup.setting.collapseGroups": "Gruppen einklappen",
+  "popup.setting.collapseGroups": "Gruppen automatisch einklappen",
   "popup.language.browser": "Browser",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -36,6 +37,10 @@
   "popup.scope.allWindows": "Alle",
   "popup.groups.heading": "Gruppen",
   "popup.groups.empty": "Noch keine Gruppen mit zwei oder mehr Tabs.",
+  "popup.groupLocks.heading": "Einklapp-Sperren",
+  "popup.groupLocks.hint": "Gesperrte Gruppen bleiben geöffnet, wenn Auto-Einklappen aktiv ist.",
+  "popup.groupLocks.empty": "In diesem Bereich gibt es noch keine Tab-Gruppen.",
+  "popup.groupLocks.tabs": "{count} Tabs",
   "popup.status.empty": "leer",
   "popup.status.found": "{count} gefunden",
   "popup.status.autoEnabled": "Automodus ist aktiv, Schwelle: {threshold}",
@@ -92,6 +97,7 @@
   "reason.domain": "gemeinsame Domain",
   "badge.autoTitle": "Anti-chaos tabs: automatische Gruppierung ist aktiv",
   "badge.suggestionsTitle": "Anti-chaos tabs: {count} Gruppen gefunden",
-  "error.tabGroupsUnavailable": "Tab-Gruppen sind in diesem Browser nicht verfügbar."
+  "error.tabGroupsUnavailable": "Tab-Gruppen sind in diesem Browser nicht verfügbar.",
+  "context.toggleCollapseLock": "Automatisches Einklappen für diese Gruppe umschalten"
 };
 })(globalThis);

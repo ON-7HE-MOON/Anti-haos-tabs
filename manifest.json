@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "default_locale": "en",
   "minimum_chrome_version": "102",
-  "permissions": ["tabs", "tabGroups", "storage", "windows"],
+  "permissions": ["tabs", "tabGroups", "storage", "windows", "contextMenus"],
   "background": {
     "service_worker": "background.js"
   },

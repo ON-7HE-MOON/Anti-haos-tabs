@@ -11,6 +11,10 @@ importScripts(
 
 const SETTINGS_KEY = "antiChaosSettings";
 const MANAGED_GROUPS_KEY = "antiChaosManagedGroups";
+const COLLAPSE_LOCKED_GROUPS_KEY = "antiChaosCollapseLockedGroups";
+const ACTIVE_GROUP_BY_WINDOW_KEY = "antiChaosActiveGroupByWindow";
+const TOGGLE_COLLAPSE_LOCK_MENU_ID = "antiChaosToggleCollapseLock";
+const TAB_GROUP_ID_NONE = -1;
 
 const DEFAULT_SETTINGS = {
   autoGroup: false,
@@ -170,6 +174,11 @@ const STOP_WORDS = new Set([
 let autoGroupTimer = null;
 let lastAutoGroupAt = 0;
 let groupingInProgress = false;
+let contextMenuSetupPromise = null;
+let lastFocusedWindowId = null;
+const activeGroupByWindowId = new Map();
+const preferredOpenGroupByWindowId = new Map();
+const PREFERRED_OPEN_GROUP_MS = 1000;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -217,6 +226,323 @@ async function saveSettings(partial) {
   });
   await chrome.storage.sync.set({ [SETTINGS_KEY]: next });
   return next;
+}
+
+const groupLockKey = (groupId) => String(groupId);
+const activeGroupStorage = () => chrome.storage.session || chrome.storage.local;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function rememberPreferredOpenGroup(windowId, groupId) {
+  if (
+    typeof windowId !== "number" ||
+    typeof groupId !== "number" ||
+    groupId === TAB_GROUP_ID_NONE
+  ) {
+    return;
+  }
+
+  preferredOpenGroupByWindowId.set(windowId, {
+    groupId,
+    at: Date.now(),
+  });
+}
+
+function getFreshPreferredOpenGroup(windowId) {
+  const entry = preferredOpenGroupByWindowId.get(windowId);
+  if (!entry) return TAB_GROUP_ID_NONE;
+
+  if (Date.now() - entry.at > PREFERRED_OPEN_GROUP_MS) {
+    preferredOpenGroupByWindowId.delete(windowId);
+    return TAB_GROUP_ID_NONE;
+  }
+
+  return entry.groupId;
+}
+
+async function getStoredActiveGroupsByWindow() {
+  const stored = await activeGroupStorage().get(ACTIVE_GROUP_BY_WINDOW_KEY);
+  return stored[ACTIVE_GROUP_BY_WINDOW_KEY] || {};
+}
+
+async function getStoredActiveGroupForWindow(windowId) {
+  const groupsByWindow = await getStoredActiveGroupsByWindow();
+  const value = groupsByWindow[String(windowId)];
+  return typeof value === "number" ? value : undefined;
+}
+
+async function setStoredActiveGroupForWindow(windowId, groupId) {
+  const groupsByWindow = await getStoredActiveGroupsByWindow();
+  groupsByWindow[String(windowId)] =
+    typeof groupId === "number" ? groupId : TAB_GROUP_ID_NONE;
+  await activeGroupStorage().set({
+    [ACTIVE_GROUP_BY_WINDOW_KEY]: groupsByWindow,
+  });
+}
+
+async function getCollapseLockedGroupKeys() {
+  const stored = await chrome.storage.local.get(COLLAPSE_LOCKED_GROUPS_KEY);
+  return Array.isArray(stored[COLLAPSE_LOCKED_GROUPS_KEY])
+    ? stored[COLLAPSE_LOCKED_GROUPS_KEY]
+    : [];
+}
+
+async function setCollapseLockedGroupKeys(keys) {
+  await chrome.storage.local.set({
+    [COLLAPSE_LOCKED_GROUPS_KEY]: [...new Set(keys.map(String))],
+  });
+}
+
+async function isGroupCollapseLocked(groupId) {
+  const keys = await getCollapseLockedGroupKeys();
+  return keys.includes(groupLockKey(groupId));
+}
+
+async function removeCollapseLock(groupId) {
+  const key = groupLockKey(groupId);
+  const keys = await getCollapseLockedGroupKeys();
+  await setCollapseLockedGroupKeys(keys.filter((item) => item !== key));
+}
+
+async function shouldCollapseGroup(groupId, settings) {
+  return settings.collapseGroups && !(await isGroupCollapseLocked(groupId));
+}
+
+async function applyCollapsePreferenceToVisibleGroups(settings) {
+  if (!settings.collapseGroups || !chrome.tabGroups) return;
+
+  const tabs = await queryTabsForSettings(settings);
+  const windowIds = [
+    ...new Set(
+      tabs
+        .map((tab) => tab.windowId)
+        .filter((windowId) => typeof windowId === "number"),
+    ),
+  ];
+
+  for (const windowId of windowIds) {
+    const activeTab = await getActiveTabInWindow(windowId).catch(() => null);
+    const keepGroupId =
+      typeof activeTab?.groupId === "number" ? activeTab.groupId : TAB_GROUP_ID_NONE;
+    await collapseGroupsInWindowExcept(windowId, keepGroupId, settings);
+  }
+}
+
+async function collapseGroupIfAllowed(groupId, settings) {
+  if (
+    !chrome.tabGroups ||
+    typeof groupId !== "number" ||
+    groupId === TAB_GROUP_ID_NONE ||
+    !(await shouldCollapseGroup(groupId, settings))
+  ) {
+    return;
+  }
+
+  try {
+    await chrome.tabGroups.update(groupId, { collapsed: true });
+  } catch (error) {
+    console.warn("Anti-chaos tabs: failed to collapse a tab group", error);
+  }
+}
+
+async function collapseGroupsInWindowExcept(windowId, keepGroupId, settings) {
+  if (!settings.collapseGroups || !chrome.tabGroups || typeof windowId !== "number") {
+    return;
+  }
+
+  const tabs = await chrome.tabs.query({ windowId });
+  const groupIds = [
+    ...new Set(
+      tabs
+        .map((tab) => tab.groupId)
+        .filter((groupId) => typeof groupId === "number" && groupId !== TAB_GROUP_ID_NONE),
+    ),
+  ];
+
+  for (const groupId of groupIds) {
+    if (groupId === keepGroupId) continue;
+    await collapseGroupIfAllowed(groupId, settings);
+  }
+}
+
+async function getActiveTabInWindow(windowId) {
+  const tabs = await chrome.tabs.query({ active: true, windowId });
+  return tabs[0] || null;
+}
+
+async function rememberActiveGroupForWindow(windowId) {
+  if (typeof windowId !== "number") return TAB_GROUP_ID_NONE;
+
+  const activeTab = await getActiveTabInWindow(windowId).catch(() => null);
+  const groupId =
+    typeof activeTab?.groupId === "number" ? activeTab.groupId : TAB_GROUP_ID_NONE;
+
+  activeGroupByWindowId.set(windowId, groupId);
+  await setStoredActiveGroupForWindow(windowId, groupId);
+  return groupId;
+}
+
+async function refreshActiveGroupSnapshot() {
+  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
+  for (const win of windows) {
+    if (typeof win.id === "number") {
+      await rememberActiveGroupForWindow(win.id);
+    }
+  }
+
+  const focused = await chrome.windows.getLastFocused({ windowTypes: ["normal"] }).catch(() => null);
+  lastFocusedWindowId = typeof focused?.id === "number" ? focused.id : null;
+}
+
+async function handleActiveTabChanged(activeInfo) {
+  await wait(80);
+
+  const settings = await getSettings();
+  const tab = await getActiveTabInWindow(activeInfo.windowId).catch(() => null);
+  const nextGroupId =
+    typeof tab?.groupId === "number" ? tab.groupId : TAB_GROUP_ID_NONE;
+  const keepGroupId =
+    nextGroupId === TAB_GROUP_ID_NONE
+      ? getFreshPreferredOpenGroup(activeInfo.windowId)
+      : nextGroupId;
+
+  activeGroupByWindowId.set(activeInfo.windowId, nextGroupId);
+  await setStoredActiveGroupForWindow(activeInfo.windowId, nextGroupId);
+
+  if (nextGroupId !== TAB_GROUP_ID_NONE) {
+    rememberPreferredOpenGroup(activeInfo.windowId, nextGroupId);
+  }
+
+  await collapseGroupsInWindowExcept(activeInfo.windowId, keepGroupId, settings);
+}
+
+async function handleWindowFocusChanged(windowId) {
+  if (windowId === chrome.windows.WINDOW_ID_NONE || typeof windowId !== "number") {
+    return;
+  }
+
+  lastFocusedWindowId = windowId;
+  await rememberActiveGroupForWindow(windowId);
+}
+
+async function handleTabGroupUpdated(group) {
+  if (!group || group.collapsed || typeof group.id !== "number") return;
+
+  await wait(80);
+
+  const settings = await getSettings();
+  if (!settings.collapseGroups) return;
+
+  rememberPreferredOpenGroup(group.windowId, group.id);
+  await collapseGroupsInWindowExcept(group.windowId, group.id, settings);
+}
+
+async function setupContextMenus(settings = null) {
+  if (!chrome.contextMenus) return;
+
+  const normalized = settings ? normalizeSettings(settings) : await getSettings();
+  const language = resolveDisplayLanguage(normalized);
+
+  await new Promise((resolve) => {
+    chrome.contextMenus.removeAll(() => resolve());
+  });
+
+  await new Promise((resolve) => {
+    chrome.contextMenus.create(
+      {
+        id: TOGGLE_COLLAPSE_LOCK_MENU_ID,
+        title: tr(language, "context.toggleCollapseLock"),
+        contexts: ["tab"],
+      },
+      () => resolve(),
+    );
+  });
+}
+
+function ensureContextMenus(settings = null) {
+  if (!chrome.contextMenus) return Promise.resolve();
+
+  if (!contextMenuSetupPromise) {
+    contextMenuSetupPromise = setupContextMenus(settings).finally(() => {
+      contextMenuSetupPromise = null;
+    });
+  }
+
+  return contextMenuSetupPromise;
+}
+
+async function toggleCollapseLockForTab(tab) {
+  if (!tab || typeof tab.groupId !== "number" || tab.groupId === TAB_GROUP_ID_NONE) {
+    return;
+  }
+
+  const groupId = tab.groupId;
+  const key = groupLockKey(groupId);
+  const keys = await getCollapseLockedGroupKeys();
+  const isLocked = keys.includes(key);
+  const nextKeys = isLocked
+    ? keys.filter((item) => item !== key)
+    : [...keys, key];
+
+  await setCollapseLockedGroupKeys(nextKeys);
+
+  const settings = await getSettings();
+  try {
+    await chrome.tabGroups.update(groupId, {
+      collapsed: !isLocked && settings.collapseGroups ? false : settings.collapseGroups,
+    });
+  } catch (error) {
+    console.warn("Anti-chaos tabs: failed to update collapse lock state", error);
+  }
+}
+
+async function setGroupCollapseLock(groupId, locked) {
+  if (!Number.isFinite(groupId) || groupId === TAB_GROUP_ID_NONE) return;
+
+  const key = groupLockKey(groupId);
+  const keys = await getCollapseLockedGroupKeys();
+  const nextKeys = locked
+    ? [...keys, key]
+    : keys.filter((item) => item !== key);
+
+  await setCollapseLockedGroupKeys(nextKeys);
+
+  const settings = await getSettings();
+  if (!locked) {
+    await collapseGroupIfAllowed(groupId, settings);
+  } else {
+    await chrome.tabGroups.update(groupId, { collapsed: false }).catch(() => null);
+  }
+}
+
+async function getCurrentTabGroupLocks(settings = null) {
+  const normalized = settings ? normalizeSettings(settings) : await getSettings();
+  const tabs = await queryTabsForSettings(normalized);
+  const groupCounts = new Map();
+
+  for (const tab of tabs) {
+    if (typeof tab.groupId !== "number" || tab.groupId === TAB_GROUP_ID_NONE) continue;
+    groupCounts.set(tab.groupId, (groupCounts.get(tab.groupId) || 0) + 1);
+  }
+
+  const lockedKeys = await getCollapseLockedGroupKeys();
+  const tabGroups = await chrome.tabGroups.query({});
+  const tabGroupsById = new Map(tabGroups.map((group) => [group.id, group]));
+  const groups = [];
+
+  for (const [groupId, tabCount] of groupCounts.entries()) {
+    const group = tabGroupsById.get(groupId);
+    if (!group) continue;
+
+    groups.push({
+      id: groupId,
+      title: group.title || `Group ${groupId}`,
+      color: group.color || "grey",
+      tabCount,
+      locked: lockedKeys.includes(groupLockKey(groupId)),
+    });
+  }
+
+  return groups.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 async function getLastFocusedWindowId() {
@@ -849,10 +1175,11 @@ async function groupTabsNow(settings = null) {
         try {
           await chrome.tabs.move(tabIds, { index: insertionIndex });
           const groupId = await chrome.tabs.group({ tabIds });
+          const collapsed = await shouldCollapseGroup(groupId, normalized);
           await chrome.tabGroups.update(groupId, {
             title: cluster.title.slice(0, 36),
             color: cluster.color,
-            collapsed: normalized.collapseGroups,
+            collapsed,
           });
           groupIds.push(groupId);
           insertionIndex += tabIds.length;
@@ -864,6 +1191,7 @@ async function groupTabsNow(settings = null) {
 
     if (groupIds.length) {
       await rememberManagedGroups(groupIds);
+      await refreshActiveGroupSnapshot();
     }
 
     const status = await analyzeTabs(normalized);
@@ -950,29 +1278,80 @@ function scheduleAutoGroup() {
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
-  await saveSettings(await getSettings());
+  const settings = await saveSettings(await getSettings());
+  await ensureContextMenus(settings);
+  await refreshActiveGroupSnapshot();
   scheduleAutoGroup();
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  ensureContextMenus().catch((error) =>
+    console.warn("Anti-chaos tabs: failed to set up context menus", error),
+  );
+  refreshActiveGroupSnapshot().catch((error) =>
+    console.warn("Anti-chaos tabs: failed to refresh active group snapshot", error),
+  );
   scheduleAutoGroup();
 });
+
+ensureContextMenus().catch((error) =>
+  console.warn("Anti-chaos tabs: failed to set up context menus", error),
+);
 
 chrome.tabs.onCreated.addListener(() => scheduleAutoGroup());
 chrome.tabs.onRemoved.addListener(() => scheduleAutoGroup());
 chrome.tabs.onAttached.addListener(() => scheduleAutoGroup());
 chrome.tabs.onDetached.addListener(() => scheduleAutoGroup());
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  handleActiveTabChanged(activeInfo).catch((error) =>
+    console.warn("Anti-chaos tabs: failed to handle active tab change", error),
+  );
+});
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === "complete" || changeInfo.title || changeInfo.url) {
     scheduleAutoGroup();
   }
 });
 
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  handleWindowFocusChanged(windowId).catch((error) =>
+    console.warn("Anti-chaos tabs: failed to handle focused window change", error),
+  );
+});
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "sync" && changes[SETTINGS_KEY]) {
+    ensureContextMenus().catch((error) =>
+      console.warn("Anti-chaos tabs: failed to refresh context menus", error),
+    );
     scheduleAutoGroup();
   }
 });
+
+if (chrome.contextMenus) {
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId !== TOGGLE_COLLAPSE_LOCK_MENU_ID) return;
+    toggleCollapseLockForTab(tab).catch((error) =>
+      console.warn("Anti-chaos tabs: failed to toggle collapse lock", error),
+    );
+  });
+}
+
+if (chrome.tabGroups?.onRemoved) {
+  chrome.tabGroups.onRemoved.addListener((group) => {
+    removeCollapseLock(group.id).catch((error) =>
+      console.warn("Anti-chaos tabs: failed to remove a collapse lock", error),
+    );
+  });
+}
+
+if (chrome.tabGroups?.onUpdated) {
+  chrome.tabGroups.onUpdated.addListener((group) => {
+    handleTabGroupUpdated(group).catch((error) =>
+      console.warn("Anti-chaos tabs: failed to handle tab group update", error),
+    );
+  });
+}
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "group-tabs-now") {
@@ -994,8 +1373,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return ungroupManagedTabs();
     }
 
+    if (message?.type === "GET_GROUP_LOCKS") {
+      return getCurrentTabGroupLocks();
+    }
+
+    if (message?.type === "SET_GROUP_COLLAPSE_LOCK") {
+      await setGroupCollapseLock(Number(message.groupId), Boolean(message.locked));
+      return getCurrentTabGroupLocks();
+    }
+
     if (message?.type === "SET_SETTINGS") {
       const settings = await saveSettings(message.settings || {});
+      await ensureContextMenus(settings);
+      await refreshActiveGroupSnapshot();
+      await applyCollapsePreferenceToVisibleGroups(settings);
       const status = await analyzeTabs(settings);
       await updateBadge(status);
       return status;

@@ -6,6 +6,7 @@
   "popup.aria.actions": "Ações",
   "popup.aria.settings": "Configurações",
   "popup.aria.groupingSettings": "Configurações de agrupamento",
+  "popup.aria.groupLocks": "Bloqueios de recolhimento de grupos",
   "popup.aria.proposedGroups": "Grupos sugeridos",
   "popup.stats.tabs": "abas",
   "popup.stats.groups": "grupos",
@@ -23,7 +24,7 @@
   "popup.setting.threshold": "Limite",
   "popup.setting.minGroupSize": "Grupo mín.",
   "popup.setting.ignorePinned": "Manter abas fixadas",
-  "popup.setting.collapseGroups": "Recolher grupos",
+  "popup.setting.collapseGroups": "Recolher grupos automaticamente",
   "popup.language.browser": "Navegador",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -36,6 +37,10 @@
   "popup.scope.allWindows": "Todas",
   "popup.groups.heading": "Grupos",
   "popup.groups.empty": "Ainda não há grupos com duas ou mais abas.",
+  "popup.groupLocks.heading": "Bloqueios de recolhimento",
+  "popup.groupLocks.hint": "Grupos bloqueados ficam expandidos quando o recolhimento automático está ativo.",
+  "popup.groupLocks.empty": "Ainda não há grupos de abas neste escopo.",
+  "popup.groupLocks.tabs": "{count} abas",
   "popup.status.empty": "vazio",
   "popup.status.found": "{count} encontrados",
   "popup.status.autoEnabled": "Modo automático ativado, limite: {threshold}",
@@ -92,6 +97,7 @@
   "reason.domain": "domínio compartilhado",
   "badge.autoTitle": "Anti-chaos tabs: agrupamento automático ativado",
   "badge.suggestionsTitle": "Anti-chaos tabs: {count} grupos encontrados",
-  "error.tabGroupsUnavailable": "Grupos de abas não estão disponíveis neste navegador."
+  "error.tabGroupsUnavailable": "Grupos de abas não estão disponíveis neste navegador.",
+  "context.toggleCollapseLock": "Alternar bloqueio de recolhimento automático deste grupo"
 };
 })(globalThis);

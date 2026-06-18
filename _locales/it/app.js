@@ -6,6 +6,7 @@
   "popup.aria.actions": "Azioni",
   "popup.aria.settings": "Impostazioni",
   "popup.aria.groupingSettings": "Impostazioni di raggruppamento",
+  "popup.aria.groupLocks": "Blocchi compressione gruppi",
   "popup.aria.proposedGroups": "Gruppi suggeriti",
   "popup.stats.tabs": "schede",
   "popup.stats.groups": "gruppi",
@@ -23,7 +24,7 @@
   "popup.setting.threshold": "Soglia",
   "popup.setting.minGroupSize": "Gruppo min.",
   "popup.setting.ignorePinned": "Mantieni schede fissate",
-  "popup.setting.collapseGroups": "Comprimi gruppi",
+  "popup.setting.collapseGroups": "Comprimi gruppi automaticamente",
   "popup.language.browser": "Browser",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -36,6 +37,10 @@
   "popup.scope.allWindows": "Tutte",
   "popup.groups.heading": "Gruppi",
   "popup.groups.empty": "Non ci sono ancora gruppi di due o più schede.",
+  "popup.groupLocks.heading": "Blocchi compressione",
+  "popup.groupLocks.hint": "I gruppi bloccati restano aperti quando la compressione automatica è attiva.",
+  "popup.groupLocks.empty": "Non ci sono ancora gruppi di schede in questo ambito.",
+  "popup.groupLocks.tabs": "{count} schede",
   "popup.status.empty": "vuoto",
   "popup.status.found": "{count} trovati",
   "popup.status.autoEnabled": "Modalità automatica attiva, soglia: {threshold}",
@@ -92,6 +97,7 @@
   "reason.domain": "dominio condiviso",
   "badge.autoTitle": "Anti-chaos tabs: raggruppamento automatico attivo",
   "badge.suggestionsTitle": "Anti-chaos tabs: {count} gruppi trovati",
-  "error.tabGroupsUnavailable": "I gruppi di schede non sono disponibili in questo browser."
+  "error.tabGroupsUnavailable": "I gruppi di schede non sono disponibili in questo browser.",
+  "context.toggleCollapseLock": "Attiva/disattiva blocco compressione automatica per questo gruppo"
 };
 })(globalThis);

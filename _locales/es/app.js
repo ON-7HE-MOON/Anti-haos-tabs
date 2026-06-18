@@ -6,6 +6,7 @@
   "popup.aria.actions": "Acciones",
   "popup.aria.settings": "Configuración",
   "popup.aria.groupingSettings": "Configuración de agrupación",
+  "popup.aria.groupLocks": "Bloqueos de contracción de grupos",
   "popup.aria.proposedGroups": "Grupos sugeridos",
   "popup.stats.tabs": "pestañas",
   "popup.stats.groups": "grupos",
@@ -23,7 +24,7 @@
   "popup.setting.threshold": "Umbral",
   "popup.setting.minGroupSize": "Grupo mín.",
   "popup.setting.ignorePinned": "Mantener pestañas fijadas",
-  "popup.setting.collapseGroups": "Contraer grupos",
+  "popup.setting.collapseGroups": "Contraer grupos automáticamente",
   "popup.language.browser": "Navegador",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -36,6 +37,10 @@
   "popup.scope.allWindows": "Todas",
   "popup.groups.heading": "Grupos",
   "popup.groups.empty": "Aún no hay grupos de dos o más pestañas.",
+  "popup.groupLocks.heading": "Bloqueos de contracción",
+  "popup.groupLocks.hint": "Los grupos bloqueados permanecen expandidos con la contracción automática.",
+  "popup.groupLocks.empty": "Aún no hay grupos de pestañas en este alcance.",
+  "popup.groupLocks.tabs": "{count} pestañas",
   "popup.status.empty": "vacío",
   "popup.status.found": "{count} encontrados",
   "popup.status.autoEnabled": "Modo automático activo, umbral: {threshold}",
@@ -92,6 +97,7 @@
   "reason.domain": "dominio compartido",
   "badge.autoTitle": "Anti-chaos tabs: agrupación automática activa",
   "badge.suggestionsTitle": "Anti-chaos tabs: {count} grupos encontrados",
-  "error.tabGroupsUnavailable": "Los grupos de pestañas no están disponibles en este navegador."
+  "error.tabGroupsUnavailable": "Los grupos de pestañas no están disponibles en este navegador.",
+  "context.toggleCollapseLock": "Cambiar bloqueo de contracción automática para este grupo"
 };
 })(globalThis);

@@ -7,8 +7,10 @@ const nodes = {
   groupedTabs: document.querySelector("#groupedTabs"),
   statusPill: document.querySelector("#statusPill"),
   groups: document.querySelector("#groups"),
+  groupLocks: document.querySelector("#groupLocks"),
   groupNow: document.querySelector("#groupNow"),
   refresh: document.querySelector("#refresh"),
+  refreshGroupLocks: document.querySelector("#refreshGroupLocks"),
   ungroup: document.querySelector("#ungroup"),
   openSettings: document.querySelector("#openSettings"),
   backToMain: document.querySelector("#backToMain"),
@@ -50,9 +52,10 @@ function showMainView() {
   nodes.settingsView.hidden = true;
 }
 
-function showSettingsView() {
+async function showSettingsView() {
   nodes.mainView.hidden = true;
   nodes.settingsView.hidden = false;
+  await refreshGroupLocks();
 }
 
 function settingsFromInputs() {
@@ -138,6 +141,61 @@ function renderGroups(groups) {
   }
 }
 
+function renderGroupLocks(groups) {
+  nodes.groupLocks.innerHTML = "";
+
+  if (!groups.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = t("popup.groupLocks.empty");
+    nodes.groupLocks.append(empty);
+    return;
+  }
+
+  for (const group of groups) {
+    const row = document.createElement("label");
+    row.className = "groupLockRow";
+    row.innerHTML = `
+      <span class="colorDot ${escapeText(group.color)}"></span>
+      <span>
+        <span class="groupLockTitle" title="${escapeText(group.title)}">${escapeText(group.title)}</span>
+        <span class="groupLockMeta">${t("popup.groupLocks.tabs", { count: group.tabCount })}</span>
+      </span>
+      <input type="checkbox" ${group.locked ? "checked" : ""} />
+    `;
+
+    const input = row.querySelector("input");
+    input.addEventListener("change", async () => {
+      input.disabled = true;
+      try {
+        renderGroupLocks(
+          await send("SET_GROUP_COLLAPSE_LOCK", {
+            groupId: group.id,
+            locked: input.checked,
+          }),
+        );
+      } catch (error) {
+        nodes.subtitle.textContent = error.message;
+        input.disabled = false;
+      }
+    });
+
+    nodes.groupLocks.append(row);
+  }
+}
+
+async function refreshGroupLocks() {
+  try {
+    renderGroupLocks(await send("GET_GROUP_LOCKS"));
+  } catch (error) {
+    nodes.groupLocks.innerHTML = "";
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = error.message;
+    nodes.groupLocks.append(empty);
+  }
+}
+
 function renderStatus(status) {
   applySettings(status.settings);
   nodes.totalTabs.textContent = status.totalTabs;
@@ -202,8 +260,13 @@ nodes.groupNow.addEventListener("click", async () => {
 
 nodes.refresh.addEventListener("click", refreshStatus);
 
-nodes.openSettings.addEventListener("click", showSettingsView);
+nodes.openSettings.addEventListener("click", () => {
+  showSettingsView().catch((error) => {
+    nodes.subtitle.textContent = error.message;
+  });
+});
 nodes.backToMain.addEventListener("click", showMainView);
+nodes.refreshGroupLocks.addEventListener("click", refreshGroupLocks);
 
 nodes.ungroup.addEventListener("click", async () => {
   setBusy(true);

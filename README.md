@@ -25,6 +25,9 @@ A local Chrome/Edge extension that helps users stay oriented when many browser t
 
 - Click the extension icon and choose `Group tabs`.
 - Enable `Auto grouping` if you want the extension to organize tabs after the threshold is reached.
+- Enable `Auto-collapse groups` if newly organized groups should start collapsed.
+- Use `Group collapse locks` in the popup settings to keep selected groups expanded.
+- You can also right-click a tab inside a group and choose the Anti-chaos lock item. Chrome does not expose the tab-group header context menu to extensions.
 - Click the settings icon in the popup to keep browser-language detection or force a language.
 - `Threshold` controls how many open tabs are needed before grouping is suggested or started automatically.
 - `Min. group` controls the minimum number of similar tabs required to create a group.

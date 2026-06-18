@@ -6,6 +6,7 @@
   "popup.aria.actions": "Действия",
   "popup.aria.settings": "Настройки",
   "popup.aria.groupingSettings": "Настройки группировки",
+  "popup.aria.groupLocks": "Блокировка сворачивания групп",
   "popup.aria.proposedGroups": "Предложенные группы",
   "popup.stats.tabs": "вкладок",
   "popup.stats.groups": "групп",
@@ -23,7 +24,7 @@
   "popup.setting.threshold": "Порог",
   "popup.setting.minGroupSize": "Мин. группа",
   "popup.setting.ignorePinned": "Не трогать закрепленные",
-  "popup.setting.collapseGroups": "Сворачивать группы",
+  "popup.setting.collapseGroups": "Авто-сворачивание групп",
   "popup.language.browser": "Браузер",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -36,6 +37,10 @@
   "popup.scope.allWindows": "Все окна",
   "popup.groups.heading": "Группы",
   "popup.groups.empty": "Пока нет групп из двух и более вкладок.",
+  "popup.groupLocks.heading": "Блокировка сворачивания групп",
+  "popup.groupLocks.hint": "Заблокированные группы остаются развернутыми при авто-сворачивании.",
+  "popup.groupLocks.empty": "В этом режиме пока нет групп вкладок.",
+  "popup.groupLocks.tabs": "вкладок: {count}",
   "popup.status.empty": "пусто",
   "popup.status.found": "найдено: {count}",
   "popup.status.autoEnabled": "Авто-режим включен, порог: {threshold}",
@@ -92,6 +97,7 @@
   "reason.domain": "общий домен",
   "badge.autoTitle": "Anti-chaos tabs: авто-группировка включена",
   "badge.suggestionsTitle": "Anti-chaos tabs: найдено групп: {count}",
-  "error.tabGroupsUnavailable": "Группы вкладок недоступны в этом браузере."
+  "error.tabGroupsUnavailable": "Группы вкладок недоступны в этом браузере.",
+  "context.toggleCollapseLock": "Переключить блокировку сворачивания группы"
 };
 })(globalThis);

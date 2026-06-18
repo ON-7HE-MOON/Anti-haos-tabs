@@ -6,6 +6,7 @@
   "popup.aria.actions": "Actions",
   "popup.aria.settings": "Settings",
   "popup.aria.groupingSettings": "Grouping settings",
+  "popup.aria.groupLocks": "Group collapse locks",
   "popup.aria.proposedGroups": "Suggested groups",
   "popup.stats.tabs": "tabs",
   "popup.stats.groups": "groups",
@@ -23,7 +24,7 @@
   "popup.setting.threshold": "Threshold",
   "popup.setting.minGroupSize": "Min. group",
   "popup.setting.ignorePinned": "Keep pinned tabs",
-  "popup.setting.collapseGroups": "Collapse groups",
+  "popup.setting.collapseGroups": "Auto-collapse groups",
   "popup.language.browser": "Browser",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -36,6 +37,10 @@
   "popup.scope.allWindows": "All windows",
   "popup.groups.heading": "Groups",
   "popup.groups.empty": "No groups of two or more tabs yet.",
+  "popup.groupLocks.heading": "Group collapse locks",
+  "popup.groupLocks.hint": "Locked groups stay expanded when auto-collapse is on.",
+  "popup.groupLocks.empty": "No tab groups in this scope yet.",
+  "popup.groupLocks.tabs": "{count} tabs",
   "popup.status.empty": "empty",
   "popup.status.found": "{count} found",
   "popup.status.autoEnabled": "Auto mode is on, threshold: {threshold}",
@@ -92,6 +97,7 @@
   "reason.domain": "shared domain",
   "badge.autoTitle": "Anti-chaos tabs: auto grouping is on",
   "badge.suggestionsTitle": "Anti-chaos tabs: {count} groups found",
-  "error.tabGroupsUnavailable": "Tab groups are not available in this browser."
+  "error.tabGroupsUnavailable": "Tab groups are not available in this browser.",
+  "context.toggleCollapseLock": "Toggle auto-collapse lock for this group"
 };
 })(globalThis);

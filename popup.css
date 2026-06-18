@@ -196,6 +196,12 @@ h2 {
   line-height: 1.35;
 }
 
+.settingsHint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -303,6 +309,16 @@ h2 {
   margin-bottom: 8px;
 }
 
+.inlineTitle {
+  margin-bottom: 0;
+}
+
+.inlineTitle button {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 #statusPill {
   min-width: 50px;
   border: 1px solid var(--border);
@@ -321,6 +337,40 @@ h2 {
   max-height: 230px;
   overflow: auto;
   padding-right: 2px;
+}
+
+.groupLocks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 250px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.groupLockRow {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 10px;
+}
+
+.groupLockTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.groupLockMeta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .empty {
@@ -357,6 +407,10 @@ h2 {
 
 .colorDot.orange {
   background: var(--orange);
+}
+
+.colorDot.red {
+  background: #ef4444;
 }
 
 .colorDot.green {
