@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Agrupa separadores por serviço, domínio e intenção partilhada."
+  },
+  "commandGroupTabsNow": {
+    "message": "Agrupar separadores com Anti-chaos tabs"
+  }
+}

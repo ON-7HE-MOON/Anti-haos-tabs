@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Regroupe les onglets par service, domaine et intention commune."
+  },
+  "commandGroupTabsNow": {
+    "message": "Regrouper les onglets avec Anti-chaos tabs"
+  }
+}

@@ -183,7 +183,11 @@ function normalizeSettings(raw = {}) {
       ? clamp(minGroupSize, 2, 12)
       : DEFAULT_SETTINGS.minGroupSize,
     scope: raw.scope === "allWindows" ? "allWindows" : "currentWindow",
-    language: ["auto", "en", "ru"].includes(raw.language) ? raw.language : "auto",
+    language:
+      raw.language === "auto" ||
+      AntiChaosI18n.SUPPORTED_LANGUAGES.includes(raw.language)
+        ? raw.language
+        : "auto",
     ignorePinned: raw.ignorePinned !== false,
     collapseGroups: Boolean(raw.collapseGroups),
   };

@@ -1,4 +1,6 @@
 const nodes = {
+  mainView: document.querySelector("#mainView"),
+  settingsView: document.querySelector("#settingsView"),
   subtitle: document.querySelector("#subtitle"),
   totalTabs: document.querySelector("#totalTabs"),
   groupCount: document.querySelector("#groupCount"),
@@ -8,6 +10,8 @@ const nodes = {
   groupNow: document.querySelector("#groupNow"),
   refresh: document.querySelector("#refresh"),
   ungroup: document.querySelector("#ungroup"),
+  openSettings: document.querySelector("#openSettings"),
+  backToMain: document.querySelector("#backToMain"),
   autoGroup: document.querySelector("#autoGroup"),
   language: document.querySelector("#language"),
   scope: document.querySelector("#scope"),
@@ -41,6 +45,16 @@ function setBusy(isBusy) {
   nodes.ungroup.disabled = isBusy;
 }
 
+function showMainView() {
+  nodes.mainView.hidden = false;
+  nodes.settingsView.hidden = true;
+}
+
+function showSettingsView() {
+  nodes.mainView.hidden = true;
+  nodes.settingsView.hidden = false;
+}
+
 function settingsFromInputs() {
   return {
     autoGroup: nodes.autoGroup.checked,
@@ -63,6 +77,10 @@ function localizeStatic(settings = currentSettings) {
 
   for (const element of document.querySelectorAll("[data-i18n-aria-label]")) {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  }
+
+  for (const element of document.querySelectorAll("[data-i18n-title]")) {
+    element.setAttribute("title", t(element.dataset.i18nTitle));
   }
 }
 
@@ -183,6 +201,9 @@ nodes.groupNow.addEventListener("click", async () => {
 });
 
 nodes.refresh.addEventListener("click", refreshStatus);
+
+nodes.openSettings.addEventListener("click", showSettingsView);
+nodes.backToMain.addEventListener("click", showMainView);
 
 nodes.ungroup.addEventListener("click", async () => {
   setBusy(true);

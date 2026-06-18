@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Agrupa abas por serviço, domínio e intenção compartilhada."
+  },
+  "commandGroupTabsNow": {
+    "message": "Agrupar abas com Anti-chaos tabs"
+  }
+}

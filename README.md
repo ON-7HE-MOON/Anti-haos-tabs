@@ -10,7 +10,8 @@ A local Chrome/Edge extension that helps users stay oriented when many browser t
 - Detects related tabs by URL, domain, service, and tab title.
 - Separates Excel, Word, PowerPoint, and OneDrive tabs.
 - Combines related shopping research, for example Amazon + eBay laptop searches.
-- Uses the browser language automatically, with a manual language switch for English and Russian.
+- Uses the browser language automatically, with a manual language switch inside the popup.
+- Supports English, Russian, Spanish, French, German, Portuguese, and Italian.
 - Does not send tabs or browsing data to external servers.
 
 ## Installation
@@ -24,7 +25,7 @@ A local Chrome/Edge extension that helps users stay oriented when many browser t
 
 - Click the extension icon and choose `Group tabs`.
 - Enable `Auto grouping` if you want the extension to organize tabs after the threshold is reached.
-- Use `Language` to keep browser-language detection or force English/Russian.
+- Click the settings icon in the popup to keep browser-language detection or force a language.
 - `Threshold` controls how many open tabs are needed before grouping is suggested or started automatically.
 - `Min. group` controls the minimum number of similar tabs required to create a group.
 

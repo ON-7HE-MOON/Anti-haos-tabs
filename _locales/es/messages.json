@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Agrupa pestañas ocupadas por servicio, dominio e intención compartida."
+  },
+  "commandGroupTabsNow": {
+    "message": "Agrupar pestañas con Anti-chaos tabs"
+  }
+}

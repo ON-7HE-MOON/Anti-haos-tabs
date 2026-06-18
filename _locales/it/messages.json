@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Raggruppa molte schede per servizio, dominio e intento comune."
+  },
+  "commandGroupTabsNow": {
+    "message": "Raggruppa schede con Anti-chaos tabs"
+  }
+}

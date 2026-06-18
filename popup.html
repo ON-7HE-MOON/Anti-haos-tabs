@@ -8,96 +8,143 @@
   </head>
   <body>
     <main class="popup">
-      <header class="header">
-        <div class="brandMark" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <div>
-          <h1>Anti-chaos tabs</h1>
-          <p id="subtitle" data-i18n="popup.subtitle.loading">Analyzing tabs...</p>
-        </div>
-      </header>
+      <section id="mainView" class="view isActive">
+        <header class="header">
+          <div class="brandMark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="titleBlock">
+            <h1>Anti-chaos tabs</h1>
+            <p id="subtitle" data-i18n="popup.subtitle.loading">Analyzing tabs...</p>
+          </div>
+          <button
+            id="openSettings"
+            class="iconButton"
+            type="button"
+            aria-label="Settings"
+            title="Settings"
+            data-i18n-aria-label="popup.action.openSettings"
+            data-i18n-title="popup.action.openSettings"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 0 1 0-7Z" />
+              <path
+                d="M19.4 13.4c.1-.5.1-.9.1-1.4s0-.9-.1-1.4l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.4-1.4L14.3 3h-4.6l-.3 2.3A8 8 0 0 0 7 6.7l-2.4-1-2 3.4 2 1.5A8 8 0 0 0 4.5 12c0 .5 0 .9.1 1.4l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.4 1.4l.3 2.3h4.6l.3-2.3a8 8 0 0 0 2.4-1.4l2.4 1 2-3.4-2-1.5Z"
+              />
+            </svg>
+          </button>
+        </header>
 
-      <section
-        class="stats"
-        aria-label="Tab statistics"
-        data-i18n-aria-label="popup.aria.stats"
-      >
-        <div>
-          <strong id="totalTabs">0</strong>
-          <span data-i18n="popup.stats.tabs">tabs</span>
-        </div>
-        <div>
-          <strong id="groupCount">0</strong>
-          <span data-i18n="popup.stats.groups">groups</span>
-        </div>
-        <div>
-          <strong id="groupedTabs">0</strong>
-          <span data-i18n="popup.stats.willGroup">will group</span>
-        </div>
-      </section>
+        <section
+          class="stats"
+          aria-label="Tab statistics"
+          data-i18n-aria-label="popup.aria.stats"
+        >
+          <div>
+            <strong id="totalTabs">0</strong>
+            <span data-i18n="popup.stats.tabs">tabs</span>
+          </div>
+          <div>
+            <strong id="groupCount">0</strong>
+            <span data-i18n="popup.stats.groups">groups</span>
+          </div>
+          <div>
+            <strong id="groupedTabs">0</strong>
+            <span data-i18n="popup.stats.willGroup">will group</span>
+          </div>
+        </section>
 
-      <section class="actions" aria-label="Actions" data-i18n-aria-label="popup.aria.actions">
-        <button id="groupNow" class="primary" type="button" data-i18n="popup.action.group">
-          Group tabs
-        </button>
-        <button id="refresh" type="button" data-i18n="popup.action.refresh">Refresh</button>
-        <button id="ungroup" type="button" data-i18n="popup.action.ungroup">Ungroup</button>
-      </section>
+        <section class="actions" aria-label="Actions" data-i18n-aria-label="popup.aria.actions">
+          <button id="groupNow" class="primary" type="button" data-i18n="popup.action.group">
+            Group tabs
+          </button>
+          <button id="refresh" type="button" data-i18n="popup.action.refresh">Refresh</button>
+          <button id="ungroup" type="button" data-i18n="popup.action.ungroup">Ungroup</button>
+        </section>
 
-      <section class="settings" aria-label="Settings" data-i18n-aria-label="popup.aria.settings">
-        <label class="switchRow">
-          <span data-i18n="popup.setting.autoGroup">Auto grouping</span>
-          <input id="autoGroup" type="checkbox" />
-        </label>
-
-        <label class="field">
-          <span data-i18n="popup.setting.language">Language</span>
-          <select id="language">
-            <option value="auto" data-i18n="popup.language.browser">Browser</option>
-            <option value="en" data-i18n="popup.language.english">English</option>
-            <option value="ru" data-i18n="popup.language.russian">Русский</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span data-i18n="popup.setting.window">Window</span>
-          <select id="scope">
-            <option value="currentWindow" data-i18n="popup.scope.currentWindow">Current</option>
-            <option value="allWindows" data-i18n="popup.scope.allWindows">All windows</option>
-          </select>
-        </label>
-
-        <div class="numberGrid">
-          <label class="field">
-            <span data-i18n="popup.setting.threshold">Threshold</span>
-            <input id="threshold" type="number" min="3" max="80" step="1" />
+        <section class="settings" aria-label="Grouping settings" data-i18n-aria-label="popup.aria.groupingSettings">
+          <label class="switchRow">
+            <span data-i18n="popup.setting.autoGroup">Auto grouping</span>
+            <input id="autoGroup" type="checkbox" />
           </label>
+
           <label class="field">
-            <span data-i18n="popup.setting.minGroupSize">Min. group</span>
-            <input id="minGroupSize" type="number" min="2" max="12" step="1" />
+            <span data-i18n="popup.setting.window">Window</span>
+            <select id="scope">
+              <option value="currentWindow" data-i18n="popup.scope.currentWindow">Current</option>
+              <option value="allWindows" data-i18n="popup.scope.allWindows">All windows</option>
+            </select>
           </label>
-        </div>
 
-        <label class="checkRow">
-          <input id="ignorePinned" type="checkbox" />
-          <span data-i18n="popup.setting.ignorePinned">Keep pinned tabs</span>
-        </label>
+          <div class="numberGrid">
+            <label class="field">
+              <span data-i18n="popup.setting.threshold">Threshold</span>
+              <input id="threshold" type="number" min="3" max="80" step="1" />
+            </label>
+            <label class="field">
+              <span data-i18n="popup.setting.minGroupSize">Min. group</span>
+              <input id="minGroupSize" type="number" min="2" max="12" step="1" />
+            </label>
+          </div>
 
-        <label class="checkRow">
-          <input id="collapseGroups" type="checkbox" />
-          <span data-i18n="popup.setting.collapseGroups">Collapse groups</span>
-        </label>
+          <label class="checkRow">
+            <input id="ignorePinned" type="checkbox" />
+            <span data-i18n="popup.setting.ignorePinned">Keep pinned tabs</span>
+          </label>
+
+          <label class="checkRow">
+            <input id="collapseGroups" type="checkbox" />
+            <span data-i18n="popup.setting.collapseGroups">Collapse groups</span>
+          </label>
+        </section>
+
+        <section aria-label="Suggested groups" data-i18n-aria-label="popup.aria.proposedGroups">
+          <div class="sectionTitle">
+            <h2 data-i18n="popup.groups.heading">Groups</h2>
+            <span id="statusPill">...</span>
+          </div>
+          <div id="groups" class="groups"></div>
+        </section>
       </section>
 
-      <section aria-label="Suggested groups" data-i18n-aria-label="popup.aria.proposedGroups">
-        <div class="sectionTitle">
-          <h2 data-i18n="popup.groups.heading">Groups</h2>
-          <span id="statusPill">...</span>
-        </div>
-        <div id="groups" class="groups"></div>
+      <section id="settingsView" class="view" hidden>
+        <header class="settingsHeader">
+          <button
+            id="backToMain"
+            class="iconButton"
+            type="button"
+            aria-label="Back"
+            title="Back"
+            data-i18n-aria-label="popup.action.back"
+            data-i18n-title="popup.action.back"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15.5 5 8.5 12l7 7" />
+            </svg>
+          </button>
+          <div>
+            <h1 data-i18n="popup.settings.title">Settings</h1>
+            <p data-i18n="popup.settings.subtitle">Interface preferences</p>
+          </div>
+        </header>
+
+        <section class="settings pageSettings" aria-label="Settings" data-i18n-aria-label="popup.aria.settings">
+          <label class="field">
+            <span data-i18n="popup.setting.language">Language</span>
+            <select id="language">
+              <option value="auto" data-i18n="popup.language.browser">Browser</option>
+              <option value="en" data-i18n="popup.language.english">English</option>
+              <option value="ru" data-i18n="popup.language.russian">Русский</option>
+              <option value="es" data-i18n="popup.language.spanish">Español</option>
+              <option value="fr" data-i18n="popup.language.french">Français</option>
+              <option value="de" data-i18n="popup.language.german">Deutsch</option>
+              <option value="pt" data-i18n="popup.language.portuguese">Português</option>
+              <option value="it" data-i18n="popup.language.italian">Italiano</option>
+            </select>
+          </label>
+        </section>
       </section>
     </main>
 

@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Gruppiert viele Browser-Tabs nach Dienst, Domain und gemeinsamem Zweck."
+  },
+  "commandGroupTabsNow": {
+    "message": "Tabs mit Anti-chaos tabs gruppieren"
+  }
+}
