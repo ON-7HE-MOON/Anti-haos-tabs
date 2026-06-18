@@ -1,4 +1,13 @@
-importScripts("i18n.js");
+importScripts(
+  "_locales/en/app.js",
+  "_locales/ru/app.js",
+  "_locales/es/app.js",
+  "_locales/fr/app.js",
+  "_locales/de/app.js",
+  "_locales/pt_BR/app.js",
+  "_locales/it/app.js",
+  "i18n.js",
+);
 
 const SETTINGS_KEY = "antiChaosSettings";
 const MANAGED_GROUPS_KEY = "antiChaosManagedGroups";
