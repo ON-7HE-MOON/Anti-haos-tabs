@@ -1,31 +1,33 @@
 # Anti-chaos tabs
 
-Локальное расширение для Chrome/Edge, которое помогает не теряться в большом количестве вкладок.
+A local Chrome/Edge extension that helps users stay oriented when many browser tabs are open.
 
-## Что умеет
+## Features
 
-- группирует вкладки вручную кнопкой `Сгруппировать`;
-- предлагает группы, когда вкладок больше заданного порога;
-- умеет авто-группировку без повторных вопросов;
-- различает домены, сервисы и темы по URL и заголовкам вкладок;
-- отдельно собирает Excel, Word, PowerPoint и OneDrive;
-- объединяет похожие покупки, например Amazon + eBay с ноутбуками;
-- не отправляет вкладки или историю на внешние серверы.
+- Groups tabs manually with the `Group tabs` button.
+- Suggests groups when the tab count passes a configurable threshold.
+- Supports auto grouping without asking every time.
+- Detects related tabs by URL, domain, service, and tab title.
+- Separates Excel, Word, PowerPoint, and OneDrive tabs.
+- Combines related shopping research, for example Amazon + eBay laptop searches.
+- Uses the browser language automatically, with a manual language switch for English and Russian.
+- Does not send tabs or browsing data to external servers.
 
-## Установка
+## Installation
 
-1. Откройте `chrome://extensions` или `edge://extensions`.
-2. Включите режим разработчика.
-3. Нажмите `Load unpacked` / `Загрузить распакованное расширение`.
-4. Выберите папку `C:\Users\qazym\AntiСhaos-tabs`.
+1. Open `chrome://extensions` or `edge://extensions`.
+2. Enable developer mode.
+3. Click `Load unpacked`.
+4. Select `C:\Users\qazym\AntiСhaos-tabs`.
 
-## Как пользоваться
+## Usage
 
-- Нажмите на иконку расширения и выберите `Сгруппировать`.
-- Включите `Авто-группировка`, если хотите, чтобы расширение само сортировало вкладки после достижения порога.
-- `Порог` задает количество открытых вкладок, после которого расширение начинает предлагать или запускать группировку.
-- `Мин. группа` задает минимальное количество похожих вкладок для создания группы.
+- Click the extension icon and choose `Group tabs`.
+- Enable `Auto grouping` if you want the extension to organize tabs after the threshold is reached.
+- Use `Language` to keep browser-language detection or force English/Russian.
+- `Threshold` controls how many open tabs are needed before grouping is suggested or started automatically.
+- `Min. group` controls the minimum number of similar tabs required to create a group.
 
-## Ограничения
+## Limitations
 
-Расширение анализирует только URL и заголовки вкладок. Оно не читает содержимое страниц и не использует внешний AI, поэтому иногда будет группировать осторожнее, чем человек.
+The extension analyzes only URLs and tab titles. It does not read page content and does not use external AI, so it may group more conservatively than a human would.

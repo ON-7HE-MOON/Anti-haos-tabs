@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Groups busy browser tabs by service, domain, and shared intent."
+  },
+  "commandGroupTabsNow": {
+    "message": "Group tabs with Anti-chaos tabs"
+  }
+}

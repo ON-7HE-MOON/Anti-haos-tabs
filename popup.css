@@ -38,7 +38,7 @@
 
 body {
   width: 380px;
-  min-height: 560px;
+  min-height: 600px;
   margin: 0;
   background: var(--bg);
   color: var(--text);
@@ -179,7 +179,7 @@ h2 {
 
 .actions {
   display: grid;
-  grid-template-columns: 1fr 96px 126px;
+  grid-template-columns: 1fr 92px 128px;
   gap: 8px;
 }
 

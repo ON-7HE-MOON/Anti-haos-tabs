@@ -9,6 +9,7 @@ const nodes = {
   refresh: document.querySelector("#refresh"),
   ungroup: document.querySelector("#ungroup"),
   autoGroup: document.querySelector("#autoGroup"),
+  language: document.querySelector("#language"),
   scope: document.querySelector("#scope"),
   threshold: document.querySelector("#threshold"),
   minGroupSize: document.querySelector("#minGroupSize"),
@@ -17,12 +18,17 @@ const nodes = {
 };
 
 let currentSettings = null;
+let currentLanguage = AntiChaosI18n.getBrowserLanguage();
 let savingTimer = null;
+
+function t(key, values) {
+  return AntiChaosI18n.t(currentLanguage, key, values);
+}
 
 function send(type, payload = {}) {
   return chrome.runtime.sendMessage({ type, ...payload }).then((response) => {
     if (!response?.ok) {
-      throw new Error(response?.error || "Не удалось выполнить действие");
+      throw new Error(response?.error || t("popup.error.actionFailed"));
     }
 
     return response.payload;
@@ -38,6 +44,7 @@ function setBusy(isBusy) {
 function settingsFromInputs() {
   return {
     autoGroup: nodes.autoGroup.checked,
+    language: nodes.language.value,
     scope: nodes.scope.value,
     threshold: Number.parseInt(nodes.threshold.value, 10),
     minGroupSize: Number.parseInt(nodes.minGroupSize.value, 10),
@@ -46,14 +53,29 @@ function settingsFromInputs() {
   };
 }
 
+function localizeStatic(settings = currentSettings) {
+  currentLanguage = AntiChaosI18n.resolveLanguage(settings?.language);
+  document.documentElement.lang = currentLanguage;
+
+  for (const element of document.querySelectorAll("[data-i18n]")) {
+    element.textContent = t(element.dataset.i18n);
+  }
+
+  for (const element of document.querySelectorAll("[data-i18n-aria-label]")) {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  }
+}
+
 function applySettings(settings) {
   currentSettings = settings;
   nodes.autoGroup.checked = settings.autoGroup;
+  nodes.language.value = settings.language;
   nodes.scope.value = settings.scope;
   nodes.threshold.value = settings.threshold;
   nodes.minGroupSize.value = settings.minGroupSize;
   nodes.ignorePinned.checked = settings.ignorePinned;
   nodes.collapseGroups.checked = settings.collapseGroups;
+  localizeStatic(settings);
 }
 
 function escapeText(value) {
@@ -70,7 +92,7 @@ function renderGroups(groups) {
   if (!groups.length) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent = "Пока нет групп из двух и более вкладок.";
+    empty.textContent = t("popup.groups.empty");
     nodes.groups.append(empty);
     return;
   }
@@ -87,7 +109,7 @@ function renderGroups(groups) {
           ${group.samples
             .map(
               (sample) =>
-                `<div class="sample" title="${escapeText(sample.title)}">${escapeText(sample.title)} · ${escapeText(sample.domain)}</div>`,
+                `<div class="sample" title="${escapeText(sample.title)}">${escapeText(sample.title)} &middot; ${escapeText(sample.domain)}</div>`,
             )
             .join("")}
         </div>
@@ -103,14 +125,18 @@ function renderStatus(status) {
   nodes.totalTabs.textContent = status.totalTabs;
   nodes.groupCount.textContent = status.groupCount;
   nodes.groupedTabs.textContent = status.groupedTabs;
-  nodes.statusPill.textContent = status.groupCount ? `${status.groupCount} найдено` : "пусто";
+  nodes.statusPill.textContent = status.groupCount
+    ? t("popup.status.found", { count: status.groupCount })
+    : t("popup.status.empty");
 
   if (status.settings.autoGroup) {
-    nodes.subtitle.textContent = `Авто-режим включен, порог: ${status.settings.threshold}`;
+    nodes.subtitle.textContent = t("popup.status.autoEnabled", {
+      threshold: status.settings.threshold,
+    });
   } else if (status.canSuggest) {
-    nodes.subtitle.textContent = "Есть вкладки, которые можно собрать в группы.";
+    nodes.subtitle.textContent = t("popup.status.canSuggest");
   } else {
-    nodes.subtitle.textContent = "Откройте больше похожих вкладок или снизьте порог.";
+    nodes.subtitle.textContent = t("popup.status.noSuggestion");
   }
 
   renderGroups(status.groups);
@@ -130,6 +156,7 @@ async function refreshStatus() {
 function scheduleSave() {
   if (!currentSettings) return;
   clearTimeout(savingTimer);
+  localizeStatic(settingsFromInputs());
 
   savingTimer = setTimeout(async () => {
     setBusy(true);
@@ -145,7 +172,7 @@ function scheduleSave() {
 
 nodes.groupNow.addEventListener("click", async () => {
   setBusy(true);
-  nodes.subtitle.textContent = "Группирую вкладки...";
+  nodes.subtitle.textContent = t("popup.status.grouping");
   try {
     renderStatus(await send("GROUP_NOW"));
   } catch (error) {
@@ -159,7 +186,7 @@ nodes.refresh.addEventListener("click", refreshStatus);
 
 nodes.ungroup.addEventListener("click", async () => {
   setBusy(true);
-  nodes.subtitle.textContent = "Разгруппировываю созданные группы...";
+  nodes.subtitle.textContent = t("popup.status.ungrouping");
   try {
     renderStatus(await send("UNGROUP_MANAGED"));
   } catch (error) {
@@ -171,6 +198,7 @@ nodes.ungroup.addEventListener("click", async () => {
 
 for (const input of [
   nodes.autoGroup,
+  nodes.language,
   nodes.scope,
   nodes.threshold,
   nodes.minGroupSize,
@@ -180,4 +208,5 @@ for (const input of [
   input.addEventListener("change", scheduleSave);
 }
 
+localizeStatic({ language: "auto" });
 refreshStatus();

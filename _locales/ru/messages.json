@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Anti-chaos tabs"
+  },
+  "appDescription": {
+    "message": "Группирует вкладки по сервисам, доменам и общему смыслу."
+  },
+  "commandGroupTabsNow": {
+    "message": "Сгруппировать вкладки через Anti-chaos tabs"
+  }
+}

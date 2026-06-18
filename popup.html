@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -16,76 +16,92 @@
         </div>
         <div>
           <h1>Anti-chaos tabs</h1>
-          <p id="subtitle">Анализ вкладок...</p>
+          <p id="subtitle" data-i18n="popup.subtitle.loading">Analyzing tabs...</p>
         </div>
       </header>
 
-      <section class="stats" aria-label="Статистика вкладок">
+      <section
+        class="stats"
+        aria-label="Tab statistics"
+        data-i18n-aria-label="popup.aria.stats"
+      >
         <div>
           <strong id="totalTabs">0</strong>
-          <span>вкладок</span>
+          <span data-i18n="popup.stats.tabs">tabs</span>
         </div>
         <div>
           <strong id="groupCount">0</strong>
-          <span>групп</span>
+          <span data-i18n="popup.stats.groups">groups</span>
         </div>
         <div>
           <strong id="groupedTabs">0</strong>
-          <span>войдут</span>
+          <span data-i18n="popup.stats.willGroup">will group</span>
         </div>
       </section>
 
-      <section class="actions" aria-label="Действия">
-        <button id="groupNow" class="primary" type="button">Сгруппировать</button>
-        <button id="refresh" type="button">Обновить</button>
-        <button id="ungroup" type="button">Разгруппировать</button>
+      <section class="actions" aria-label="Actions" data-i18n-aria-label="popup.aria.actions">
+        <button id="groupNow" class="primary" type="button" data-i18n="popup.action.group">
+          Group tabs
+        </button>
+        <button id="refresh" type="button" data-i18n="popup.action.refresh">Refresh</button>
+        <button id="ungroup" type="button" data-i18n="popup.action.ungroup">Ungroup</button>
       </section>
 
-      <section class="settings" aria-label="Настройки">
+      <section class="settings" aria-label="Settings" data-i18n-aria-label="popup.aria.settings">
         <label class="switchRow">
-          <span>Авто-группировка</span>
+          <span data-i18n="popup.setting.autoGroup">Auto grouping</span>
           <input id="autoGroup" type="checkbox" />
         </label>
 
         <label class="field">
-          <span>Окно</span>
+          <span data-i18n="popup.setting.language">Language</span>
+          <select id="language">
+            <option value="auto" data-i18n="popup.language.browser">Browser</option>
+            <option value="en" data-i18n="popup.language.english">English</option>
+            <option value="ru" data-i18n="popup.language.russian">Русский</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span data-i18n="popup.setting.window">Window</span>
           <select id="scope">
-            <option value="currentWindow">Текущее</option>
-            <option value="allWindows">Все окна</option>
+            <option value="currentWindow" data-i18n="popup.scope.currentWindow">Current</option>
+            <option value="allWindows" data-i18n="popup.scope.allWindows">All windows</option>
           </select>
         </label>
 
         <div class="numberGrid">
           <label class="field">
-            <span>Порог</span>
+            <span data-i18n="popup.setting.threshold">Threshold</span>
             <input id="threshold" type="number" min="3" max="80" step="1" />
           </label>
           <label class="field">
-            <span>Мин. группа</span>
+            <span data-i18n="popup.setting.minGroupSize">Min. group</span>
             <input id="minGroupSize" type="number" min="2" max="12" step="1" />
           </label>
         </div>
 
         <label class="checkRow">
           <input id="ignorePinned" type="checkbox" />
-          <span>Не трогать закрепленные</span>
+          <span data-i18n="popup.setting.ignorePinned">Keep pinned tabs</span>
         </label>
 
         <label class="checkRow">
           <input id="collapseGroups" type="checkbox" />
-          <span>Сворачивать группы</span>
+          <span data-i18n="popup.setting.collapseGroups">Collapse groups</span>
         </label>
       </section>
 
-      <section aria-label="Предложенные группы">
+      <section aria-label="Suggested groups" data-i18n-aria-label="popup.aria.proposedGroups">
         <div class="sectionTitle">
-          <h2>Группы</h2>
+          <h2 data-i18n="popup.groups.heading">Groups</h2>
           <span id="statusPill">...</span>
         </div>
         <div id="groups" class="groups"></div>
       </section>
     </main>
 
+    <script src="i18n.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

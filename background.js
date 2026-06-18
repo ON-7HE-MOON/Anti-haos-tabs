@@ -1,3 +1,5 @@
+importScripts("i18n.js");
+
 const SETTINGS_KEY = "antiChaosSettings";
 const MANAGED_GROUPS_KEY = "antiChaosManagedGroups";
 
@@ -6,6 +8,7 @@ const DEFAULT_SETTINGS = {
   threshold: 8,
   minGroupSize: 2,
   scope: "currentWindow",
+  language: "auto",
   ignorePinned: true,
   collapseGroups: false,
 };
@@ -71,7 +74,6 @@ const MARKETPLACES = [
 const PRODUCT_INTENTS = [
   {
     key: "laptops",
-    label: "ноутбуки",
     terms: [
       "laptop",
       "notebook",
@@ -88,22 +90,18 @@ const PRODUCT_INTENTS = [
   },
   {
     key: "phones",
-    label: "смартфоны",
     terms: ["iphone", "android", "phone", "smartphone", "pixel", "galaxy", "телефон", "смартфон"],
   },
   {
     key: "monitors",
-    label: "мониторы",
     terms: ["monitor", "display", "oled", "ips", "монитор", "дисплей"],
   },
   {
     key: "headphones",
-    label: "наушники",
     terms: ["headphones", "earbuds", "airpods", "наушники", "гарнитура"],
   },
   {
     key: "clothes",
-    label: "одежда",
     terms: ["shirt", "sneakers", "hoodie", "dress", "shoes", "одежда", "кроссовки", "рубашка"],
   },
 ];
@@ -166,6 +164,14 @@ let groupingInProgress = false;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
+function resolveDisplayLanguage(settings = {}) {
+  return AntiChaosI18n.resolveLanguage(settings.language);
+}
+
+function tr(language, key, values) {
+  return AntiChaosI18n.t(language, key, values);
+}
+
 function normalizeSettings(raw = {}) {
   const threshold = Number.parseInt(raw.threshold, 10);
   const minGroupSize = Number.parseInt(raw.minGroupSize, 10);
@@ -177,6 +183,7 @@ function normalizeSettings(raw = {}) {
       ? clamp(minGroupSize, 2, 12)
       : DEFAULT_SETTINGS.minGroupSize,
     scope: raw.scope === "allWindows" ? "allWindows" : "currentWindow",
+    language: ["auto", "en", "ru"].includes(raw.language) ? raw.language : "auto",
     ignorePinned: raw.ignorePinned !== false,
     collapseGroups: Boolean(raw.collapseGroups),
   };
@@ -322,7 +329,7 @@ function isMarketplace(hostname) {
   return MARKETPLACES.some((market) => host.includes(market));
 }
 
-function officeAppClassification(hostname, text) {
+function officeAppClassification(hostname, text, language) {
   const isOfficeHost =
     hostname.includes("office.com") ||
     hostname.includes("officeapps.live.com") ||
@@ -335,10 +342,10 @@ function officeAppClassification(hostname, text) {
   if (hasAny(text, ["excel", "xlsx", "xlsm", "spreadsheet", "workbook", "таблиц"])) {
     return {
       key: "office:excel",
-      title: "Excel / таблицы",
+      title: tr(language, "group.office.excel"),
       color: COLORS.office,
       priority: 10,
-      reason: "общий тип файла Microsoft 365",
+      reason: tr(language, "reason.microsoftFileType"),
       strong: true,
     };
   }
@@ -346,10 +353,10 @@ function officeAppClassification(hostname, text) {
   if (hasAny(text, ["word", "docx", "document", "документ"])) {
     return {
       key: "office:word",
-      title: "Word / документы",
+      title: tr(language, "group.office.word"),
       color: "blue",
       priority: 11,
-      reason: "общий тип файла Microsoft 365",
+      reason: tr(language, "reason.microsoftFileType"),
       strong: true,
     };
   }
@@ -357,34 +364,34 @@ function officeAppClassification(hostname, text) {
   if (hasAny(text, ["powerpoint", "pptx", "presentation", "презентац"])) {
     return {
       key: "office:powerpoint",
-      title: "PowerPoint / презентации",
+      title: tr(language, "group.office.powerpoint"),
       color: "orange",
       priority: 12,
-      reason: "общий тип файла Microsoft 365",
+      reason: tr(language, "reason.microsoftFileType"),
       strong: true,
     };
   }
 
   return {
     key: "office:onedrive",
-    title: "OneDrive / файлы",
+    title: tr(language, "group.office.onedrive"),
     color: COLORS.docs,
     priority: 19,
-    reason: "общий сервис Microsoft 365",
+    reason: tr(language, "reason.microsoftService"),
     strong: true,
   };
 }
 
-function googleDocsClassification(hostname, text) {
+function googleDocsClassification(hostname, text, language) {
   if (!hostname.includes("docs.google.com")) return null;
 
   if (text.includes("/spreadsheets/") || hasAny(text, ["sheets", "spreadsheet"])) {
     return {
       key: "google:sheets",
-      title: "Google Sheets",
+      title: tr(language, "group.google.sheets"),
       color: "green",
       priority: 13,
-      reason: "общий тип Google Workspace",
+      reason: tr(language, "reason.googleWorkspaceType"),
       strong: true,
     };
   }
@@ -392,10 +399,10 @@ function googleDocsClassification(hostname, text) {
   if (text.includes("/document/") || text.includes("docs")) {
     return {
       key: "google:docs",
-      title: "Google Docs",
+      title: tr(language, "group.google.docs"),
       color: "blue",
       priority: 14,
-      reason: "общий тип Google Workspace",
+      reason: tr(language, "reason.googleWorkspaceType"),
       strong: true,
     };
   }
@@ -403,10 +410,10 @@ function googleDocsClassification(hostname, text) {
   if (text.includes("/presentation/") || text.includes("slides")) {
     return {
       key: "google:slides",
-      title: "Google Slides",
+      title: tr(language, "group.google.slides"),
       color: "orange",
       priority: 15,
-      reason: "общий тип Google Workspace",
+      reason: tr(language, "reason.googleWorkspaceType"),
       strong: true,
     };
   }
@@ -414,12 +421,12 @@ function googleDocsClassification(hostname, text) {
   return null;
 }
 
-function semanticClassification(tab, url, rootDomain, text) {
+function semanticClassification(tab, url, rootDomain, text, language) {
   const hostname = url.hostname.toLowerCase();
-  const office = officeAppClassification(hostname, text);
+  const office = officeAppClassification(hostname, text, language);
   if (office) return office;
 
-  const googleDocs = googleDocsClassification(hostname, text);
+  const googleDocs = googleDocsClassification(hostname, text, language);
   if (googleDocs) return googleDocs;
 
   const productIntent = findProductIntent(text);
@@ -427,20 +434,24 @@ function semanticClassification(tab, url, rootDomain, text) {
     if (productIntent) {
       return {
         key: `shopping:${productIntent.key}`,
-        title: `Покупки: ${productIntent.label}`,
+        title: tr(language, "group.shoppingIntent", {
+          intent: tr(language, `intent.${productIntent.key}`),
+        }),
         color: COLORS.commerce,
         priority: 20,
-        reason: "общая тема покупок",
+        reason: tr(language, "reason.shoppingTopic"),
         strong: true,
       };
     }
 
     return {
       key: `shopping:${rootDomain}`,
-      title: `Покупки: ${prettyDomain(rootDomain)}`,
+      title: tr(language, "group.shoppingDomain", {
+        domain: prettyDomain(rootDomain),
+      }),
       color: COLORS.commerce,
       priority: 29,
-      reason: "общий магазин",
+      reason: tr(language, "reason.shoppingStore"),
       strong: true,
     };
   }
@@ -450,10 +461,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   ) {
     return {
       key: "ai:assistants",
-      title: "AI-ассистенты",
+      title: tr(language, "group.aiAssistants"),
       color: COLORS.ai,
       priority: 30,
-      reason: "общий AI-сервис",
+      reason: tr(language, "reason.aiService"),
       strong: true,
     };
   }
@@ -464,10 +475,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   ) {
     return {
       key: "work:development",
-      title: "Разработка",
+      title: tr(language, "group.development"),
       color: COLORS.dev,
       priority: 35,
-      reason: "общая техническая тема",
+      reason: tr(language, "reason.technicalTopic"),
       strong: false,
     };
   }
@@ -475,10 +486,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["jira", "atlassian", "trello.com", "asana.com", "linear.app", "monday.com"])) {
     return {
       key: "work:tasks",
-      title: "Проекты и задачи",
+      title: tr(language, "group.projectsTasks"),
       color: COLORS.project,
       priority: 36,
-      reason: "общий рабочий сервис",
+      reason: tr(language, "reason.workService"),
       strong: true,
     };
   }
@@ -486,10 +497,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["notion.so", "confluence", "miro.com", "figma.com", "canva.com"])) {
     return {
       key: "work:boards-docs",
-      title: "Рабочие материалы",
+      title: tr(language, "group.workMaterials"),
       color: COLORS.docs,
       priority: 37,
-      reason: "общие рабочие документы",
+      reason: tr(language, "reason.workDocs"),
       strong: false,
     };
   }
@@ -497,10 +508,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["gmail.com", "mail.google.com", "outlook.live.com", "outlook.office.com", "mail.ru"])) {
     return {
       key: "communication:mail",
-      title: "Почта",
+      title: tr(language, "group.mail"),
       color: COLORS.mail,
       priority: 40,
-      reason: "общий тип коммуникации",
+      reason: tr(language, "reason.communicationType"),
       strong: true,
     };
   }
@@ -508,10 +519,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["calendar.google.com", "teams.microsoft.com", "zoom.us", "meet.google.com"])) {
     return {
       key: "communication:meetings",
-      title: "Встречи и календарь",
+      title: tr(language, "group.meetings"),
       color: COLORS.meetings,
       priority: 41,
-      reason: "общий тип коммуникации",
+      reason: tr(language, "reason.communicationType"),
       strong: true,
     };
   }
@@ -519,10 +530,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["youtube.com", "netflix.com", "spotify.com", "music.youtube.com", "twitch.tv"])) {
     return {
       key: "media:watch-listen",
-      title: "Медиа",
+      title: tr(language, "group.media"),
       color: COLORS.media,
       priority: 50,
-      reason: "общий медиа-сервис",
+      reason: tr(language, "reason.mediaService"),
       strong: true,
     };
   }
@@ -530,10 +541,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["linkedin.com", "facebook.com", "instagram.com", "x.com", "twitter.com", "reddit.com", "t.me", "telegram.org"])) {
     return {
       key: "social:feeds",
-      title: "Соцсети",
+      title: tr(language, "group.social"),
       color: COLORS.social,
       priority: 51,
-      reason: "общий социальный сервис",
+      reason: tr(language, "reason.socialService"),
       strong: true,
     };
   }
@@ -541,10 +552,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["wikipedia.org", "coursera.org", "udemy.com", "khanacademy.org", "edx.org"])) {
     return {
       key: "learning:research",
-      title: "Обучение и справки",
+      title: tr(language, "group.learning"),
       color: COLORS.education,
       priority: 55,
-      reason: "общая учебная тема",
+      reason: tr(language, "reason.learningTopic"),
       strong: false,
     };
   }
@@ -552,10 +563,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["booking.com", "airbnb.", "tripadvisor.", "skyscanner.", "avia", "kayak.", "maps.google."])) {
     return {
       key: "travel:planning",
-      title: "Поездки и карты",
+      title: tr(language, "group.travel"),
       color: COLORS.travel,
       priority: 60,
-      reason: "общая тема поездок",
+      reason: tr(language, "reason.travelTopic"),
       strong: false,
     };
   }
@@ -563,10 +574,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["finance.yahoo.", "tradingview.", "coinmarketcap.", "binance.", "investing.com"])) {
     return {
       key: "finance:markets",
-      title: "Финансы",
+      title: tr(language, "group.finance"),
       color: COLORS.finance,
       priority: 61,
-      reason: "общая финансовая тема",
+      reason: tr(language, "reason.financeTopic"),
       strong: false,
     };
   }
@@ -574,10 +585,10 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (hasAny(hostname, ["news.google.", "bbc.", "cnn.", "nytimes.", "meduza.", "tengrinews.", "informburo."])) {
     return {
       key: "news:reading",
-      title: "Новости",
+      title: tr(language, "group.news"),
       color: COLORS.news,
       priority: 62,
-      reason: "общий тип сайтов",
+      reason: tr(language, "reason.siteType"),
       strong: false,
     };
   }
@@ -585,10 +596,12 @@ function semanticClassification(tab, url, rootDomain, text) {
   if (productIntent) {
     return {
       key: `topic:${productIntent.key}`,
-      title: `Тема: ${productIntent.label}`,
+      title: tr(language, "group.topic", {
+        topic: tr(language, `intent.${productIntent.key}`),
+      }),
       color: COLORS.topic,
       priority: 70,
-      reason: "общая тема в заголовках",
+      reason: tr(language, "reason.titleTopic"),
       strong: false,
     };
   }
@@ -598,7 +611,7 @@ function semanticClassification(tab, url, rootDomain, text) {
     title: prettyDomain(rootDomain),
     color: COLORS.domain,
     priority: 100,
-    reason: "общий домен",
+    reason: tr(language, "reason.domain"),
     strong: false,
   };
 }
@@ -636,13 +649,15 @@ function makeTabMeta(tab, settings) {
   const rootDomain = rootDomainFromHost(url.hostname);
   if (!rootDomain) return null;
 
+  const language = resolveDisplayLanguage(settings);
   const text = textFor(tab, url);
-  const classification = semanticClassification(tab, url, rootDomain, text);
+  const classification = semanticClassification(tab, url, rootDomain, text, language);
 
   return {
     tab,
     url,
     rootDomain,
+    language,
     classification,
     tokens: tokensFromTab(tab, url, rootDomain),
   };
@@ -671,10 +686,10 @@ function applyTopicOverrides(metas, minGroupSize) {
 
     meta.classification = {
       key: `topic:${best.token}`,
-      title: `Тема: ${titleCase(best.token)}`,
+      title: tr(meta.language, "group.topic", { topic: titleCase(best.token) }),
       color: COLORS.topic,
       priority: 65,
-      reason: "повторяется в заголовках вкладок",
+      reason: tr(meta.language, "reason.repeatedTitle"),
       strong: false,
     };
   }
@@ -760,6 +775,7 @@ async function analyzeTabs(settings = null) {
 
   return {
     settings: normalized,
+    displayLanguage: resolveDisplayLanguage(normalized),
     totalTabs: tabs.length,
     eligibleTabs: eligibleTabs.length,
     groupCount: previewGroups.length,
@@ -777,19 +793,21 @@ async function rememberManagedGroups(groupIds) {
 }
 
 async function groupTabsNow(settings = null) {
+  const normalized = settings ? normalizeSettings(settings) : await getSettings();
+  const language = resolveDisplayLanguage(normalized);
+
   if (!chrome.tabGroups) {
-    throw new Error("Tab groups are not available in this browser.");
+    throw new Error(tr(language, "error.tabGroupsUnavailable"));
   }
 
   if (groupingInProgress) {
-    return analyzeTabs(settings);
+    return analyzeTabs(normalized);
   }
 
   groupingInProgress = true;
   const groupIds = [];
 
   try {
-    const normalized = settings ? normalizeSettings(settings) : await getSettings();
     const tabs = await queryTabsForSettings(normalized);
     const byWindow = new Map();
 
@@ -865,11 +883,12 @@ async function ungroupManagedTabs() {
 async function updateBadge(existingStatus = null) {
   const status = existingStatus || (await analyzeTabs());
   const settings = status.settings;
+  const language = resolveDisplayLanguage(settings);
 
   if (settings.autoGroup) {
     await chrome.action.setBadgeText({ text: "Auto" });
     await chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
-    await chrome.action.setTitle({ title: "Anti-chaos tabs: авто-группировка включена" });
+    await chrome.action.setTitle({ title: tr(language, "badge.autoTitle") });
     return;
   }
 
@@ -877,7 +896,7 @@ async function updateBadge(existingStatus = null) {
     await chrome.action.setBadgeText({ text: "Sort" });
     await chrome.action.setBadgeBackgroundColor({ color: "#f97316" });
     await chrome.action.setTitle({
-      title: `Anti-chaos tabs: найдено групп ${status.groupCount}`,
+      title: tr(language, "badge.suggestionsTitle", { count: status.groupCount }),
     });
     return;
   }
