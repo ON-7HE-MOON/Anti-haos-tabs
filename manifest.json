@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Anti-chaos tabs",
+  "description": "Groups busy browser tabs by service, domain, and shared intent.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "102",
+  "permissions": ["tabs", "tabGroups", "storage", "windows"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Anti-chaos tabs",
+    "default_popup": "popup.html"
+  },
+  "commands": {
+    "group-tabs-now": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Group tabs with Anti-chaos tabs"
+    }
+  }
+}

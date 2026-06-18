@@ -1,0 +1,978 @@
+const SETTINGS_KEY = "antiChaosSettings";
+const MANAGED_GROUPS_KEY = "antiChaosManagedGroups";
+
+const DEFAULT_SETTINGS = {
+  autoGroup: false,
+  threshold: 8,
+  minGroupSize: 2,
+  scope: "currentWindow",
+  ignorePinned: true,
+  collapseGroups: false,
+};
+
+const COLORS = {
+  ai: "purple",
+  commerce: "orange",
+  dev: "blue",
+  docs: "cyan",
+  education: "green",
+  finance: "green",
+  mail: "blue",
+  maps: "green",
+  media: "pink",
+  meetings: "blue",
+  news: "yellow",
+  office: "green",
+  project: "purple",
+  social: "pink",
+  topic: "purple",
+  travel: "cyan",
+  domain: "grey",
+};
+
+const COMMON_SECOND_LEVEL_TLDS = new Set([
+  "ac",
+  "co",
+  "com",
+  "edu",
+  "gov",
+  "net",
+  "org",
+]);
+
+const INTERNAL_PROTOCOLS = new Set([
+  "about:",
+  "brave:",
+  "chrome:",
+  "chrome-extension:",
+  "devtools:",
+  "edge:",
+  "opera:",
+  "vivaldi:",
+]);
+
+const MARKETPLACES = [
+  "amazon.",
+  "ebay.",
+  "aliexpress.",
+  "temu.",
+  "etsy.",
+  "walmart.",
+  "bestbuy.",
+  "target.",
+  "newegg.",
+  "kaspi.",
+  "ozon.",
+  "wildberries.",
+  "market.yandex.",
+  "shop.",
+];
+
+const PRODUCT_INTENTS = [
+  {
+    key: "laptops",
+    label: "ноутбуки",
+    terms: [
+      "laptop",
+      "notebook",
+      "macbook",
+      "ultrabook",
+      "thinkpad",
+      "ideapad",
+      "vivobook",
+      "ноутбук",
+      "ноутбуки",
+      "ультрабук",
+      "макбук",
+    ],
+  },
+  {
+    key: "phones",
+    label: "смартфоны",
+    terms: ["iphone", "android", "phone", "smartphone", "pixel", "galaxy", "телефон", "смартфон"],
+  },
+  {
+    key: "monitors",
+    label: "мониторы",
+    terms: ["monitor", "display", "oled", "ips", "монитор", "дисплей"],
+  },
+  {
+    key: "headphones",
+    label: "наушники",
+    terms: ["headphones", "earbuds", "airpods", "наушники", "гарнитура"],
+  },
+  {
+    key: "clothes",
+    label: "одежда",
+    terms: ["shirt", "sneakers", "hoodie", "dress", "shoes", "одежда", "кроссовки", "рубашка"],
+  },
+];
+
+const STOP_WORDS = new Set([
+  "about",
+  "after",
+  "again",
+  "all",
+  "also",
+  "and",
+  "are",
+  "best",
+  "buy",
+  "can",
+  "com",
+  "default",
+  "doc",
+  "docs",
+  "for",
+  "from",
+  "google",
+  "home",
+  "how",
+  "into",
+  "login",
+  "more",
+  "new",
+  "official",
+  "online",
+  "open",
+  "page",
+  "pages",
+  "price",
+  "sale",
+  "search",
+  "shop",
+  "site",
+  "store",
+  "that",
+  "the",
+  "this",
+  "with",
+  "your",
+  "авторизация",
+  "главная",
+  "купить",
+  "магазин",
+  "новый",
+  "онлайн",
+  "официальный",
+  "поиск",
+  "страница",
+  "цена",
+]);
+
+let autoGroupTimer = null;
+let lastAutoGroupAt = 0;
+let groupingInProgress = false;
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+function normalizeSettings(raw = {}) {
+  const threshold = Number.parseInt(raw.threshold, 10);
+  const minGroupSize = Number.parseInt(raw.minGroupSize, 10);
+
+  return {
+    autoGroup: Boolean(raw.autoGroup),
+    threshold: Number.isFinite(threshold) ? clamp(threshold, 3, 80) : DEFAULT_SETTINGS.threshold,
+    minGroupSize: Number.isFinite(minGroupSize)
+      ? clamp(minGroupSize, 2, 12)
+      : DEFAULT_SETTINGS.minGroupSize,
+    scope: raw.scope === "allWindows" ? "allWindows" : "currentWindow",
+    ignorePinned: raw.ignorePinned !== false,
+    collapseGroups: Boolean(raw.collapseGroups),
+  };
+}
+
+async function getSettings() {
+  const stored = await chrome.storage.sync.get(SETTINGS_KEY);
+  return normalizeSettings({
+    ...DEFAULT_SETTINGS,
+    ...(stored[SETTINGS_KEY] || {}),
+  });
+}
+
+async function saveSettings(partial) {
+  const next = normalizeSettings({
+    ...(await getSettings()),
+    ...partial,
+  });
+  await chrome.storage.sync.set({ [SETTINGS_KEY]: next });
+  return next;
+}
+
+async function getLastFocusedWindowId() {
+  const win = await chrome.windows.getLastFocused({ windowTypes: ["normal"] });
+  return win?.id;
+}
+
+async function queryTabsForSettings(settings) {
+  if (settings.scope === "allWindows") {
+    return chrome.tabs.query({ windowType: "normal" });
+  }
+
+  const windowId = await getLastFocusedWindowId();
+  if (typeof windowId !== "number") return [];
+  return chrome.tabs.query({ windowId });
+}
+
+function parseTabUrl(tab) {
+  if (!tab.url) return null;
+
+  try {
+    const url = new URL(tab.url);
+    if (INTERNAL_PROTOCOLS.has(url.protocol)) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+function rootDomainFromHost(hostname) {
+  const cleanHost = hostname.toLowerCase().replace(/^www\./, "");
+  if (!cleanHost || cleanHost === "localhost" || /^\d+\.\d+\.\d+\.\d+$/.test(cleanHost)) {
+    return cleanHost;
+  }
+
+  const parts = cleanHost.split(".").filter(Boolean);
+  if (parts.length <= 2) return cleanHost;
+
+  const second = parts[parts.length - 2];
+  const top = parts[parts.length - 1];
+  if (COMMON_SECOND_LEVEL_TLDS.has(second) && top.length <= 3) {
+    return parts.slice(-3).join(".");
+  }
+
+  return parts.slice(-2).join(".");
+}
+
+function titleCase(value) {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase());
+}
+
+function prettyDomain(domain) {
+  const base = domain.replace(/^www\./, "").split(".")[0] || domain;
+  const known = {
+    aliexpress: "AliExpress",
+    amazon: "Amazon",
+    apple: "Apple",
+    asana: "Asana",
+    atlassian: "Atlassian",
+    azure: "Azure",
+    bestbuy: "Best Buy",
+    bing: "Bing",
+    chatgpt: "ChatGPT",
+    confluence: "Confluence",
+    coursera: "Coursera",
+    ebay: "eBay",
+    figma: "Figma",
+    github: "GitHub",
+    gitlab: "GitLab",
+    gmail: "Gmail",
+    google: "Google",
+    kaspi: "Kaspi",
+    linkedin: "LinkedIn",
+    microsoft: "Microsoft",
+    miro: "Miro",
+    netflix: "Netflix",
+    notion: "Notion",
+    office: "Office",
+    outlook: "Outlook",
+    ozon: "Ozon",
+    perplexity: "Perplexity",
+    reddit: "Reddit",
+    sharepoint: "SharePoint",
+    slack: "Slack",
+    stackoverflow: "Stack Overflow",
+    telegram: "Telegram",
+    temu: "Temu",
+    trello: "Trello",
+    walmart: "Walmart",
+    wildberries: "Wildberries",
+    wikipedia: "Wikipedia",
+    x: "X",
+    youtube: "YouTube",
+  };
+
+  return known[base] || titleCase(base);
+}
+
+function textFor(tab, url) {
+  const searchText = [];
+  for (const key of ["q", "query", "search", "k", "p", "text"]) {
+    const value = url.searchParams.get(key);
+    if (value) searchText.push(value);
+  }
+
+  return `${tab.title || ""} ${url.hostname} ${url.pathname} ${searchText.join(" ")}`.toLowerCase();
+}
+
+function hasAny(text, terms) {
+  return terms.some((term) => text.includes(term));
+}
+
+function findProductIntent(text) {
+  return PRODUCT_INTENTS.find((intent) => hasAny(text, intent.terms)) || null;
+}
+
+function isMarketplace(hostname) {
+  const host = hostname.toLowerCase();
+  return MARKETPLACES.some((market) => host.includes(market));
+}
+
+function officeAppClassification(hostname, text) {
+  const isOfficeHost =
+    hostname.includes("office.com") ||
+    hostname.includes("officeapps.live.com") ||
+    hostname.includes("onedrive.live.com") ||
+    hostname.includes("sharepoint.com") ||
+    hostname.includes("microsoft365.com");
+
+  if (!isOfficeHost) return null;
+
+  if (hasAny(text, ["excel", "xlsx", "xlsm", "spreadsheet", "workbook", "таблиц"])) {
+    return {
+      key: "office:excel",
+      title: "Excel / таблицы",
+      color: COLORS.office,
+      priority: 10,
+      reason: "общий тип файла Microsoft 365",
+      strong: true,
+    };
+  }
+
+  if (hasAny(text, ["word", "docx", "document", "документ"])) {
+    return {
+      key: "office:word",
+      title: "Word / документы",
+      color: "blue",
+      priority: 11,
+      reason: "общий тип файла Microsoft 365",
+      strong: true,
+    };
+  }
+
+  if (hasAny(text, ["powerpoint", "pptx", "presentation", "презентац"])) {
+    return {
+      key: "office:powerpoint",
+      title: "PowerPoint / презентации",
+      color: "orange",
+      priority: 12,
+      reason: "общий тип файла Microsoft 365",
+      strong: true,
+    };
+  }
+
+  return {
+    key: "office:onedrive",
+    title: "OneDrive / файлы",
+    color: COLORS.docs,
+    priority: 19,
+    reason: "общий сервис Microsoft 365",
+    strong: true,
+  };
+}
+
+function googleDocsClassification(hostname, text) {
+  if (!hostname.includes("docs.google.com")) return null;
+
+  if (text.includes("/spreadsheets/") || hasAny(text, ["sheets", "spreadsheet"])) {
+    return {
+      key: "google:sheets",
+      title: "Google Sheets",
+      color: "green",
+      priority: 13,
+      reason: "общий тип Google Workspace",
+      strong: true,
+    };
+  }
+
+  if (text.includes("/document/") || text.includes("docs")) {
+    return {
+      key: "google:docs",
+      title: "Google Docs",
+      color: "blue",
+      priority: 14,
+      reason: "общий тип Google Workspace",
+      strong: true,
+    };
+  }
+
+  if (text.includes("/presentation/") || text.includes("slides")) {
+    return {
+      key: "google:slides",
+      title: "Google Slides",
+      color: "orange",
+      priority: 15,
+      reason: "общий тип Google Workspace",
+      strong: true,
+    };
+  }
+
+  return null;
+}
+
+function semanticClassification(tab, url, rootDomain, text) {
+  const hostname = url.hostname.toLowerCase();
+  const office = officeAppClassification(hostname, text);
+  if (office) return office;
+
+  const googleDocs = googleDocsClassification(hostname, text);
+  if (googleDocs) return googleDocs;
+
+  const productIntent = findProductIntent(text);
+  if (isMarketplace(hostname)) {
+    if (productIntent) {
+      return {
+        key: `shopping:${productIntent.key}`,
+        title: `Покупки: ${productIntent.label}`,
+        color: COLORS.commerce,
+        priority: 20,
+        reason: "общая тема покупок",
+        strong: true,
+      };
+    }
+
+    return {
+      key: `shopping:${rootDomain}`,
+      title: `Покупки: ${prettyDomain(rootDomain)}`,
+      color: COLORS.commerce,
+      priority: 29,
+      reason: "общий магазин",
+      strong: true,
+    };
+  }
+
+  if (
+    hasAny(hostname, ["chat.openai.com", "chatgpt.com", "claude.ai", "gemini.google.com", "perplexity.ai"])
+  ) {
+    return {
+      key: "ai:assistants",
+      title: "AI-ассистенты",
+      color: COLORS.ai,
+      priority: 30,
+      reason: "общий AI-сервис",
+      strong: true,
+    };
+  }
+
+  if (
+    hasAny(hostname, ["github.com", "gitlab.com", "bitbucket.org", "stackoverflow.com", "stackexchange.com"]) ||
+    hasAny(text, ["npm", "react", "typescript", "javascript", "python", "api docs", "sdk", "docker"])
+  ) {
+    return {
+      key: "work:development",
+      title: "Разработка",
+      color: COLORS.dev,
+      priority: 35,
+      reason: "общая техническая тема",
+      strong: false,
+    };
+  }
+
+  if (hasAny(hostname, ["jira", "atlassian", "trello.com", "asana.com", "linear.app", "monday.com"])) {
+    return {
+      key: "work:tasks",
+      title: "Проекты и задачи",
+      color: COLORS.project,
+      priority: 36,
+      reason: "общий рабочий сервис",
+      strong: true,
+    };
+  }
+
+  if (hasAny(hostname, ["notion.so", "confluence", "miro.com", "figma.com", "canva.com"])) {
+    return {
+      key: "work:boards-docs",
+      title: "Рабочие материалы",
+      color: COLORS.docs,
+      priority: 37,
+      reason: "общие рабочие документы",
+      strong: false,
+    };
+  }
+
+  if (hasAny(hostname, ["gmail.com", "mail.google.com", "outlook.live.com", "outlook.office.com", "mail.ru"])) {
+    return {
+      key: "communication:mail",
+      title: "Почта",
+      color: COLORS.mail,
+      priority: 40,
+      reason: "общий тип коммуникации",
+      strong: true,
+    };
+  }
+
+  if (hasAny(hostname, ["calendar.google.com", "teams.microsoft.com", "zoom.us", "meet.google.com"])) {
+    return {
+      key: "communication:meetings",
+      title: "Встречи и календарь",
+      color: COLORS.meetings,
+      priority: 41,
+      reason: "общий тип коммуникации",
+      strong: true,
+    };
+  }
+
+  if (hasAny(hostname, ["youtube.com", "netflix.com", "spotify.com", "music.youtube.com", "twitch.tv"])) {
+    return {
+      key: "media:watch-listen",
+      title: "Медиа",
+      color: COLORS.media,
+      priority: 50,
+      reason: "общий медиа-сервис",
+      strong: true,
+    };
+  }
+
+  if (hasAny(hostname, ["linkedin.com", "facebook.com", "instagram.com", "x.com", "twitter.com", "reddit.com", "t.me", "telegram.org"])) {
+    return {
+      key: "social:feeds",
+      title: "Соцсети",
+      color: COLORS.social,
+      priority: 51,
+      reason: "общий социальный сервис",
+      strong: true,
+    };
+  }
+
+  if (hasAny(hostname, ["wikipedia.org", "coursera.org", "udemy.com", "khanacademy.org", "edx.org"])) {
+    return {
+      key: "learning:research",
+      title: "Обучение и справки",
+      color: COLORS.education,
+      priority: 55,
+      reason: "общая учебная тема",
+      strong: false,
+    };
+  }
+
+  if (hasAny(hostname, ["booking.com", "airbnb.", "tripadvisor.", "skyscanner.", "avia", "kayak.", "maps.google."])) {
+    return {
+      key: "travel:planning",
+      title: "Поездки и карты",
+      color: COLORS.travel,
+      priority: 60,
+      reason: "общая тема поездок",
+      strong: false,
+    };
+  }
+
+  if (hasAny(hostname, ["finance.yahoo.", "tradingview.", "coinmarketcap.", "binance.", "investing.com"])) {
+    return {
+      key: "finance:markets",
+      title: "Финансы",
+      color: COLORS.finance,
+      priority: 61,
+      reason: "общая финансовая тема",
+      strong: false,
+    };
+  }
+
+  if (hasAny(hostname, ["news.google.", "bbc.", "cnn.", "nytimes.", "meduza.", "tengrinews.", "informburo."])) {
+    return {
+      key: "news:reading",
+      title: "Новости",
+      color: COLORS.news,
+      priority: 62,
+      reason: "общий тип сайтов",
+      strong: false,
+    };
+  }
+
+  if (productIntent) {
+    return {
+      key: `topic:${productIntent.key}`,
+      title: `Тема: ${productIntent.label}`,
+      color: COLORS.topic,
+      priority: 70,
+      reason: "общая тема в заголовках",
+      strong: false,
+    };
+  }
+
+  return {
+    key: `domain:${rootDomain}`,
+    title: prettyDomain(rootDomain),
+    color: COLORS.domain,
+    priority: 100,
+    reason: "общий домен",
+    strong: false,
+  };
+}
+
+function tokensFromTab(tab, url, rootDomain) {
+  const domainParts = rootDomain.split(".").map((part) => part.toLowerCase());
+  const searchText = [];
+  for (const key of ["q", "query", "search", "k", "p", "text"]) {
+    const value = url.searchParams.get(key);
+    if (value) searchText.push(value);
+  }
+
+  const source = `${tab.title || ""} ${url.pathname} ${searchText.join(" ")}`.toLowerCase();
+  const matches = source.match(/[\p{L}\p{N}][\p{L}\p{N}-]{2,}/gu) || [];
+  const unique = new Set();
+
+  for (const raw of matches) {
+    const token = raw.replace(/^-+|-+$/g, "");
+    if (token.length < 4 || token.length > 28) continue;
+    if (/^\d+$/.test(token)) continue;
+    if (STOP_WORDS.has(token)) continue;
+    if (domainParts.includes(token)) continue;
+    unique.add(token);
+  }
+
+  return [...unique];
+}
+
+function makeTabMeta(tab, settings) {
+  if (settings.ignorePinned && tab.pinned) return null;
+
+  const url = parseTabUrl(tab);
+  if (!url || typeof tab.id !== "number" || typeof tab.windowId !== "number") return null;
+
+  const rootDomain = rootDomainFromHost(url.hostname);
+  if (!rootDomain) return null;
+
+  const text = textFor(tab, url);
+  const classification = semanticClassification(tab, url, rootDomain, text);
+
+  return {
+    tab,
+    url,
+    rootDomain,
+    classification,
+    tokens: tokensFromTab(tab, url, rootDomain),
+  };
+}
+
+function applyTopicOverrides(metas, minGroupSize) {
+  const tokenCounts = new Map();
+
+  for (const meta of metas) {
+    if (meta.classification.strong) continue;
+    for (const token of meta.tokens) {
+      tokenCounts.set(token, (tokenCounts.get(token) || 0) + 1);
+    }
+  }
+
+  for (const meta of metas) {
+    if (meta.classification.strong || meta.tokens.length === 0) continue;
+
+    const sharedTokens = meta.tokens
+      .map((token) => ({ token, count: tokenCounts.get(token) || 0 }))
+      .filter((item) => item.count >= minGroupSize)
+      .sort((a, b) => b.count - a.count || a.token.localeCompare(b.token));
+
+    const best = sharedTokens[0];
+    if (!best) continue;
+
+    meta.classification = {
+      key: `topic:${best.token}`,
+      title: `Тема: ${titleCase(best.token)}`,
+      color: COLORS.topic,
+      priority: 65,
+      reason: "повторяется в заголовках вкладок",
+      strong: false,
+    };
+  }
+}
+
+function buildClusters(tabs, settings) {
+  const metas = tabs
+    .map((tab) => makeTabMeta(tab, settings))
+    .filter(Boolean);
+
+  applyTopicOverrides(metas, settings.minGroupSize);
+
+  const byKey = new Map();
+  for (const meta of metas) {
+    const key = `${meta.tab.windowId}:${meta.classification.key}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.tabs.push(meta.tab);
+      existing.samples.push(sampleFromTab(meta.tab, meta.rootDomain));
+    } else {
+      byKey.set(key, {
+        key: meta.classification.key,
+        windowId: meta.tab.windowId,
+        title: meta.classification.title,
+        color: meta.classification.color,
+        priority: meta.classification.priority,
+        reason: meta.classification.reason,
+        tabs: [meta.tab],
+        samples: [sampleFromTab(meta.tab, meta.rootDomain)],
+      });
+    }
+  }
+
+  return [...byKey.values()]
+    .filter((cluster) => cluster.tabs.length >= settings.minGroupSize)
+    .sort((a, b) => a.windowId - b.windowId || a.priority - b.priority || a.title.localeCompare(b.title));
+}
+
+function sampleFromTab(tab, rootDomain) {
+  return {
+    title: (tab.title || prettyDomain(rootDomain)).replace(/\s+/g, " ").trim(),
+    domain: rootDomain,
+  };
+}
+
+function groupClustersForPreview(clusters) {
+  const merged = new Map();
+
+  for (const cluster of clusters) {
+    const key = cluster.key;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.count += cluster.tabs.length;
+      existing.windows += 1;
+      existing.samples.push(...cluster.samples);
+    } else {
+      merged.set(key, {
+        key,
+        title: cluster.title,
+        color: cluster.color,
+        reason: cluster.reason,
+        count: cluster.tabs.length,
+        windows: 1,
+        samples: [...cluster.samples],
+      });
+    }
+  }
+
+  return [...merged.values()]
+    .map((group) => ({
+      ...group,
+      samples: group.samples.slice(0, 4),
+    }))
+    .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+}
+
+async function analyzeTabs(settings = null) {
+  const normalized = settings ? normalizeSettings(settings) : await getSettings();
+  const tabs = await queryTabsForSettings(normalized);
+  const eligibleTabs = tabs.filter((tab) => makeTabMeta(tab, normalized));
+  const clusters = buildClusters(tabs, normalized);
+  const previewGroups = groupClustersForPreview(clusters);
+
+  return {
+    settings: normalized,
+    totalTabs: tabs.length,
+    eligibleTabs: eligibleTabs.length,
+    groupCount: previewGroups.length,
+    groupedTabs: previewGroups.reduce((sum, group) => sum + group.count, 0),
+    canSuggest: tabs.length >= normalized.threshold && previewGroups.length > 0,
+    groups: previewGroups,
+  };
+}
+
+async function rememberManagedGroups(groupIds) {
+  const stored = await chrome.storage.local.get(MANAGED_GROUPS_KEY);
+  const known = Array.isArray(stored[MANAGED_GROUPS_KEY]) ? stored[MANAGED_GROUPS_KEY] : [];
+  const next = [...new Set([...known, ...groupIds].filter((id) => typeof id === "number"))];
+  await chrome.storage.local.set({ [MANAGED_GROUPS_KEY]: next });
+}
+
+async function groupTabsNow(settings = null) {
+  if (!chrome.tabGroups) {
+    throw new Error("Tab groups are not available in this browser.");
+  }
+
+  if (groupingInProgress) {
+    return analyzeTabs(settings);
+  }
+
+  groupingInProgress = true;
+  const groupIds = [];
+
+  try {
+    const normalized = settings ? normalizeSettings(settings) : await getSettings();
+    const tabs = await queryTabsForSettings(normalized);
+    const byWindow = new Map();
+
+    for (const tab of tabs) {
+      if (!byWindow.has(tab.windowId)) byWindow.set(tab.windowId, []);
+      byWindow.get(tab.windowId).push(tab);
+    }
+
+    for (const windowTabs of byWindow.values()) {
+      const clusters = buildClusters(windowTabs, normalized);
+      if (!clusters.length) continue;
+
+      const eligibleIndexes = windowTabs
+        .filter((tab) => !(normalized.ignorePinned && tab.pinned))
+        .map((tab) => tab.index);
+      let insertionIndex = eligibleIndexes.length ? Math.min(...eligibleIndexes) : 0;
+
+      for (const cluster of clusters) {
+        const tabIds = cluster.tabs
+          .filter((tab) => typeof tab.id === "number")
+          .sort((a, b) => a.index - b.index)
+          .map((tab) => tab.id);
+
+        if (tabIds.length < normalized.minGroupSize) continue;
+
+        try {
+          await chrome.tabs.move(tabIds, { index: insertionIndex });
+          const groupId = await chrome.tabs.group({ tabIds });
+          await chrome.tabGroups.update(groupId, {
+            title: cluster.title.slice(0, 36),
+            color: cluster.color,
+            collapsed: normalized.collapseGroups,
+          });
+          groupIds.push(groupId);
+          insertionIndex += tabIds.length;
+        } catch (error) {
+          console.warn("Anti-chaos tabs: failed to group a cluster", error);
+        }
+      }
+    }
+
+    if (groupIds.length) {
+      await rememberManagedGroups(groupIds);
+    }
+
+    const status = await analyzeTabs(normalized);
+    await updateBadge(status);
+    return status;
+  } finally {
+    groupingInProgress = false;
+  }
+}
+
+async function ungroupManagedTabs() {
+  const stored = await chrome.storage.local.get(MANAGED_GROUPS_KEY);
+  const groupIds = Array.isArray(stored[MANAGED_GROUPS_KEY]) ? stored[MANAGED_GROUPS_KEY] : [];
+  const tabs = await chrome.tabs.query({});
+  const tabIds = tabs
+    .filter((tab) => groupIds.includes(tab.groupId))
+    .map((tab) => tab.id)
+    .filter((id) => typeof id === "number");
+
+  if (tabIds.length) {
+    await chrome.tabs.ungroup(tabIds);
+  }
+
+  await chrome.storage.local.set({ [MANAGED_GROUPS_KEY]: [] });
+  const status = await analyzeTabs();
+  await updateBadge(status);
+  return status;
+}
+
+async function updateBadge(existingStatus = null) {
+  const status = existingStatus || (await analyzeTabs());
+  const settings = status.settings;
+
+  if (settings.autoGroup) {
+    await chrome.action.setBadgeText({ text: "Auto" });
+    await chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+    await chrome.action.setTitle({ title: "Anti-chaos tabs: авто-группировка включена" });
+    return;
+  }
+
+  if (status.canSuggest) {
+    await chrome.action.setBadgeText({ text: "Sort" });
+    await chrome.action.setBadgeBackgroundColor({ color: "#f97316" });
+    await chrome.action.setTitle({
+      title: `Anti-chaos tabs: найдено групп ${status.groupCount}`,
+    });
+    return;
+  }
+
+  await chrome.action.setBadgeText({ text: "" });
+  await chrome.action.setTitle({ title: "Anti-chaos tabs" });
+}
+
+function scheduleAutoGroup() {
+  if (autoGroupTimer) clearTimeout(autoGroupTimer);
+
+  autoGroupTimer = setTimeout(async () => {
+    try {
+      const settings = await getSettings();
+      const status = await analyzeTabs(settings);
+
+      if (!settings.autoGroup) {
+        await updateBadge(status);
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastAutoGroupAt < 5000) {
+        await updateBadge(status);
+        return;
+      }
+
+      if (status.totalTabs >= settings.threshold && status.groupCount > 0) {
+        lastAutoGroupAt = now;
+        await groupTabsNow(settings);
+      } else {
+        await updateBadge(status);
+      }
+    } catch (error) {
+      console.warn("Anti-chaos tabs: auto grouping failed", error);
+    }
+  }, 1200);
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
+  await saveSettings(await getSettings());
+  scheduleAutoGroup();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  scheduleAutoGroup();
+});
+
+chrome.tabs.onCreated.addListener(() => scheduleAutoGroup());
+chrome.tabs.onRemoved.addListener(() => scheduleAutoGroup());
+chrome.tabs.onAttached.addListener(() => scheduleAutoGroup());
+chrome.tabs.onDetached.addListener(() => scheduleAutoGroup());
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === "complete" || changeInfo.title || changeInfo.url) {
+    scheduleAutoGroup();
+  }
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "sync" && changes[SETTINGS_KEY]) {
+    scheduleAutoGroup();
+  }
+});
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "group-tabs-now") {
+    groupTabsNow().catch((error) => console.warn("Anti-chaos tabs: command failed", error));
+  }
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  (async () => {
+    if (message?.type === "GET_STATUS") {
+      return analyzeTabs();
+    }
+
+    if (message?.type === "GROUP_NOW") {
+      return groupTabsNow();
+    }
+
+    if (message?.type === "UNGROUP_MANAGED") {
+      return ungroupManagedTabs();
+    }
+
+    if (message?.type === "SET_SETTINGS") {
+      const settings = await saveSettings(message.settings || {});
+      const status = await analyzeTabs(settings);
+      await updateBadge(status);
+      return status;
+    }
+
+    throw new Error("Unknown message type.");
+  })()
+    .then((payload) => sendResponse({ ok: true, payload }))
+    .catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
+
+  return true;
+});

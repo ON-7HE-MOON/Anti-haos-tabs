@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anti-chaos tabs</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="header">
+        <div class="brandMark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div>
+          <h1>Anti-chaos tabs</h1>
+          <p id="subtitle">Анализ вкладок...</p>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="Статистика вкладок">
+        <div>
+          <strong id="totalTabs">0</strong>
+          <span>вкладок</span>
+        </div>
+        <div>
+          <strong id="groupCount">0</strong>
+          <span>групп</span>
+        </div>
+        <div>
+          <strong id="groupedTabs">0</strong>
+          <span>войдут</span>
+        </div>
+      </section>
+
+      <section class="actions" aria-label="Действия">
+        <button id="groupNow" class="primary" type="button">Сгруппировать</button>
+        <button id="refresh" type="button">Обновить</button>
+        <button id="ungroup" type="button">Разгруппировать</button>
+      </section>
+
+      <section class="settings" aria-label="Настройки">
+        <label class="switchRow">
+          <span>Авто-группировка</span>
+          <input id="autoGroup" type="checkbox" />
+        </label>
+
+        <label class="field">
+          <span>Окно</span>
+          <select id="scope">
+            <option value="currentWindow">Текущее</option>
+            <option value="allWindows">Все окна</option>
+          </select>
+        </label>
+
+        <div class="numberGrid">
+          <label class="field">
+            <span>Порог</span>
+            <input id="threshold" type="number" min="3" max="80" step="1" />
+          </label>
+          <label class="field">
+            <span>Мин. группа</span>
+            <input id="minGroupSize" type="number" min="2" max="12" step="1" />
+          </label>
+        </div>
+
+        <label class="checkRow">
+          <input id="ignorePinned" type="checkbox" />
+          <span>Не трогать закрепленные</span>
+        </label>
+
+        <label class="checkRow">
+          <input id="collapseGroups" type="checkbox" />
+          <span>Сворачивать группы</span>
+        </label>
+      </section>
+
+      <section aria-label="Предложенные группы">
+        <div class="sectionTitle">
+          <h2>Группы</h2>
+          <span id="statusPill">...</span>
+        </div>
+        <div id="groups" class="groups"></div>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
