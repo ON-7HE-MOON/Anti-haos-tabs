@@ -178,7 +178,9 @@ let contextMenuSetupPromise = null;
 let lastFocusedWindowId = null;
 const activeGroupByWindowId = new Map();
 const preferredOpenGroupByWindowId = new Map();
+const programmaticGroupUpdateUntilById = new Map();
 const PREFERRED_OPEN_GROUP_MS = 1000;
+const PROGRAMMATIC_GROUP_UPDATE_IGNORE_MS = 700;
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -259,6 +261,27 @@ function getFreshPreferredOpenGroup(windowId) {
   return entry.groupId;
 }
 
+function markProgrammaticGroupUpdate(groupId) {
+  if (typeof groupId !== "number" || groupId === TAB_GROUP_ID_NONE) return;
+  programmaticGroupUpdateUntilById.set(
+    groupId,
+    Date.now() + PROGRAMMATIC_GROUP_UPDATE_IGNORE_MS,
+  );
+}
+
+function isProgrammaticGroupUpdate(groupId) {
+  const until = programmaticGroupUpdateUntilById.get(groupId);
+  if (!until) return false;
+
+  if (Date.now() > until) {
+    programmaticGroupUpdateUntilById.delete(groupId);
+    return false;
+  }
+
+  programmaticGroupUpdateUntilById.delete(groupId);
+  return true;
+}
+
 async function getStoredActiveGroupsByWindow() {
   const stored = await activeGroupStorage().get(ACTIVE_GROUP_BY_WINDOW_KEY);
   return stored[ACTIVE_GROUP_BY_WINDOW_KEY] || {};
@@ -307,6 +330,33 @@ async function shouldCollapseGroup(groupId, settings) {
   return settings.collapseGroups && !(await isGroupCollapseLocked(groupId));
 }
 
+async function isGroupCurrentlyActive(groupId) {
+  if (typeof groupId !== "number" || groupId === TAB_GROUP_ID_NONE) {
+    return false;
+  }
+
+  const activeTabs = await chrome.tabs.query({ active: true });
+  return activeTabs.some((tab) => tab.groupId === groupId);
+}
+
+async function expandGroupIfActive(groupId) {
+  if (
+    !chrome.tabGroups ||
+    typeof groupId !== "number" ||
+    groupId === TAB_GROUP_ID_NONE ||
+    !(await isGroupCurrentlyActive(groupId))
+  ) {
+    return;
+  }
+
+  try {
+    markProgrammaticGroupUpdate(groupId);
+    await chrome.tabGroups.update(groupId, { collapsed: false });
+  } catch (error) {
+    console.warn("Anti-chaos tabs: failed to keep the active group expanded", error);
+  }
+}
+
 async function applyCollapsePreferenceToVisibleGroups(settings) {
   if (!settings.collapseGroups || !chrome.tabGroups) return;
 
@@ -332,12 +382,14 @@ async function collapseGroupIfAllowed(groupId, settings) {
     !chrome.tabGroups ||
     typeof groupId !== "number" ||
     groupId === TAB_GROUP_ID_NONE ||
-    !(await shouldCollapseGroup(groupId, settings))
+    !(await shouldCollapseGroup(groupId, settings)) ||
+    (await isGroupCurrentlyActive(groupId))
   ) {
     return;
   }
 
   try {
+    markProgrammaticGroupUpdate(groupId);
     await chrome.tabGroups.update(groupId, { collapsed: true });
   } catch (error) {
     console.warn("Anti-chaos tabs: failed to collapse a tab group", error);
@@ -397,6 +449,9 @@ async function handleActiveTabChanged(activeInfo) {
   await wait(80);
 
   const settings = await getSettings();
+  const previousGroupId = activeGroupByWindowId.has(activeInfo.windowId)
+    ? activeGroupByWindowId.get(activeInfo.windowId)
+    : await getStoredActiveGroupForWindow(activeInfo.windowId);
   const tab = await getActiveTabInWindow(activeInfo.windowId).catch(() => null);
   const nextGroupId =
     typeof tab?.groupId === "number" ? tab.groupId : TAB_GROUP_ID_NONE;
@@ -410,6 +465,11 @@ async function handleActiveTabChanged(activeInfo) {
 
   if (nextGroupId !== TAB_GROUP_ID_NONE) {
     rememberPreferredOpenGroup(activeInfo.windowId, nextGroupId);
+    await expandGroupIfActive(nextGroupId);
+  }
+
+  if (previousGroupId === nextGroupId) {
+    return;
   }
 
   await collapseGroupsInWindowExcept(activeInfo.windowId, keepGroupId, settings);
@@ -425,7 +485,12 @@ async function handleWindowFocusChanged(windowId) {
 }
 
 async function handleTabGroupUpdated(group) {
-  if (!group || group.collapsed || typeof group.id !== "number") return;
+  if (!group || typeof group.id !== "number") return;
+  if (isProgrammaticGroupUpdate(group.id)) return;
+  if (group.collapsed) {
+    await expandGroupIfActive(group.id);
+    return;
+  }
 
   await wait(80);
 
@@ -487,8 +552,13 @@ async function toggleCollapseLockForTab(tab) {
 
   const settings = await getSettings();
   try {
+    const shouldCollapseAfterToggle =
+      isLocked &&
+      settings.collapseGroups &&
+      !(await isGroupCurrentlyActive(groupId));
+    markProgrammaticGroupUpdate(groupId);
     await chrome.tabGroups.update(groupId, {
-      collapsed: !isLocked && settings.collapseGroups ? false : settings.collapseGroups,
+      collapsed: shouldCollapseAfterToggle,
     });
   } catch (error) {
     console.warn("Anti-chaos tabs: failed to update collapse lock state", error);
@@ -510,6 +580,7 @@ async function setGroupCollapseLock(groupId, locked) {
   if (!locked) {
     await collapseGroupIfAllowed(groupId, settings);
   } else {
+    markProgrammaticGroupUpdate(groupId);
     await chrome.tabGroups.update(groupId, { collapsed: false }).catch(() => null);
   }
 }
@@ -1175,7 +1246,12 @@ async function groupTabsNow(settings = null) {
         try {
           await chrome.tabs.move(tabIds, { index: insertionIndex });
           const groupId = await chrome.tabs.group({ tabIds });
-          const collapsed = await shouldCollapseGroup(groupId, normalized);
+          const collapsed =
+            (await shouldCollapseGroup(groupId, normalized)) &&
+            !(await isGroupCurrentlyActive(groupId));
+          if (collapsed) {
+            markProgrammaticGroupUpdate(groupId);
+          }
           await chrome.tabGroups.update(groupId, {
             title: cluster.title.slice(0, 36),
             color: cluster.color,
