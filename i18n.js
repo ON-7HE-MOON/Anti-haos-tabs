@@ -1,11 +1,26 @@
 (function attachAntiChaosI18n(global) {
   const DEFAULT_LANGUAGE = "en";
   const LANGUAGE_ALIASES = {
-    "pt-br": "pt",
-    "pt-pt": "pt",
+    "pt-br": "pt_BR",
+    "pt_br": "pt_BR",
+    "pt-pt": "pt_PT",
+    "pt_pt": "pt_PT",
   };
   const DICTIONARIES = global.AntiChaosLocales || {};
-  const SUPPORTED_LANGUAGES = ["en", "ru", "es", "fr", "de", "pt", "it"].filter(
+  if (!DICTIONARIES.pt && DICTIONARIES.pt_BR) {
+    DICTIONARIES.pt = DICTIONARIES.pt_BR;
+  }
+  const SUPPORTED_LANGUAGES = [
+    "en",
+    "ru",
+    "es",
+    "fr",
+    "de",
+    "pt",
+    "pt_BR",
+    "pt_PT",
+    "it",
+  ].filter(
     (language) => DICTIONARIES[language],
   );
 

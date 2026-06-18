@@ -1,6 +1,6 @@
 (function registerAntiChaosLocale(global) {
   global.AntiChaosLocales = global.AntiChaosLocales || {};
-  global.AntiChaosLocales.pt = {
+  global.AntiChaosLocales.pt_BR = {
   "popup.subtitle.loading": "Analisando abas...",
   "popup.aria.stats": "Estatísticas das abas",
   "popup.aria.actions": "Ações",

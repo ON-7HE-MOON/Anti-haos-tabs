@@ -5,6 +5,7 @@ importScripts(
   "_locales/fr/app.js",
   "_locales/de/app.js",
   "_locales/pt_BR/app.js",
+  "_locales/pt_PT/app.js",
   "_locales/it/app.js",
   "i18n.js",
 );
