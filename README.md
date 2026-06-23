@@ -12,6 +12,7 @@ Anti-chaos tabs is a local Chrome/Edge extension that helps users stay oriented 
 - Combines related shopping research, for example Amazon + eBay laptop searches.
 - Can automatically collapse inactive groups while keeping the active group open.
 - Lets users lock selected groups so they stay expanded.
+- Can show an optional notification when manual grouping suggestions are ready.
 - Uses the browser language automatically, with a manual language switch inside the popup.
 - Supports English, Russian, Spanish, French, German, Portuguese, and Italian.
 - Does not send tabs or browsing data to external servers.
@@ -27,7 +28,7 @@ Anti-chaos tabs is a local Chrome/Edge extension that helps users stay oriented 
 ## Usage
 
 - Click the extension icon and choose `Group tabs`.
-- Enable `Auto grouping` if you want the extension to organize tabs after the threshold is reached.
+- `Auto grouping` is enabled by default and organizes tabs after the threshold is reached.
 - Enable `Collapse groups automatically` if inactive groups should be collapsed.
 - Use `Group collapse locks` in the popup settings to keep selected groups expanded.
 - You can also right-click a tab inside a group and choose the Anti-chaos lock item. Chrome does not expose the tab-group header context menu to extensions.
@@ -42,8 +43,13 @@ The extension asks for these browser permissions:
 - `tabs`: reads tab URLs and titles so it can detect related tabs.
 - `tabGroups`: creates, updates, collapses, expands, and ungroups tab groups.
 - `storage`: saves user settings, language choice, and group collapse locks.
-- `windows`: supports grouping in the current window or across all normal windows.
 - `contextMenus`: adds a lock/unlock action when right-clicking a tab inside a group.
+
+It also uses the Chrome windows API to support current-window and all-window grouping. This API usage does not require a separate manifest permission.
+
+Optional permission:
+
+- `notifications`: shows a grouping suggestion notification when the user enables it in the popup.
 
 Anti-chaos tabs does not request host permissions and does not read page content.
 

@@ -33,6 +33,7 @@ The extension stores only local preferences, including:
 - language preference;
 - pinned-tab behavior;
 - automatic group collapse preference;
+- grouping suggestion notification preference;
 - group collapse locks.
 
 These values are stored using the browser extension storage APIs.
@@ -46,8 +47,13 @@ The requested permissions are used only for tab organization:
 - `tabs`: read tab titles and URLs for local grouping.
 - `tabGroups`: create, update, collapse, expand, and ungroup tab groups.
 - `storage`: save local settings.
-- `windows`: support current-window and all-window grouping.
 - `contextMenus`: add a lock/unlock action to tab context menus.
+
+The extension also uses the Chrome windows API to support current-window and all-window grouping. This API usage does not require a separate manifest permission.
+
+Optional permission:
+
+- `notifications`: show a grouping suggestion notification only after the user enables notifications.
 
 The extension does not request host permissions.
 

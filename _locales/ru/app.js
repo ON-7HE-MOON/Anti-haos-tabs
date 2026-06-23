@@ -1,6 +1,12 @@
 (function registerAntiChaosLocale(global) {
   global.AntiChaosLocales = global.AntiChaosLocales || {};
   global.AntiChaosLocales.ru = {
+  "popup.setting.notifySuggestions": "Уведомлять о готовых группах",
+  "popup.status.notificationsDenied": "Уведомления не включены.",
+  "popup.error.notificationsUnavailable": "Уведомления недоступны в этом браузере.",
+  "notification.suggestions.title": "Можно сгруппировать вкладки",
+  "notification.suggestions.message": "{tabCount} вкладок можно собрать в {groupCount} групп.",
+  "notification.suggestions.groupButton": "Сгруппировать",
   "popup.subtitle.loading": "Анализ вкладок...",
   "popup.aria.stats": "Статистика вкладок",
   "popup.aria.actions": "Действия",

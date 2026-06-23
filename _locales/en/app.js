@@ -25,6 +25,7 @@
   "popup.setting.minGroupSize": "Min. group",
   "popup.setting.ignorePinned": "Keep pinned tabs",
   "popup.setting.collapseGroups": "Auto-collapse groups",
+  "popup.setting.notifySuggestions": "Notify when groups are ready",
   "popup.language.browser": "Browser",
   "popup.language.english": "English",
   "popup.language.russian": "Русский",
@@ -48,7 +49,9 @@
   "popup.status.noSuggestion": "Open more similar tabs or lower the threshold.",
   "popup.status.grouping": "Grouping tabs...",
   "popup.status.ungrouping": "Ungrouping groups created by Anti-chaos tabs...",
+  "popup.status.notificationsDenied": "Notifications were not enabled.",
   "popup.error.actionFailed": "Could not complete the action",
+  "popup.error.notificationsUnavailable": "Notifications are not available in this browser.",
   "intent.laptops": "laptops",
   "intent.phones": "phones",
   "intent.monitors": "monitors",
@@ -97,6 +100,9 @@
   "reason.domain": "shared domain",
   "badge.autoTitle": "Anti-chaos tabs: auto grouping is on",
   "badge.suggestionsTitle": "Anti-chaos tabs: {count} groups found",
+  "notification.suggestions.title": "Ready to group tabs",
+  "notification.suggestions.message": "{tabCount} tabs can be collected into {groupCount} groups.",
+  "notification.suggestions.groupButton": "Group tabs",
   "error.tabGroupsUnavailable": "Tab groups are not available in this browser.",
   "context.toggleCollapseLock": "Toggle auto-collapse lock for this group"
 };

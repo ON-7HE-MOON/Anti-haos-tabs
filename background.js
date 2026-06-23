@@ -15,16 +15,20 @@ const MANAGED_GROUPS_KEY = "antiChaosManagedGroups";
 const COLLAPSE_LOCKED_GROUPS_KEY = "antiChaosCollapseLockedGroups";
 const ACTIVE_GROUP_BY_WINDOW_KEY = "antiChaosActiveGroupByWindow";
 const TOGGLE_COLLAPSE_LOCK_MENU_ID = "antiChaosToggleCollapseLock";
+const SUGGESTION_NOTIFICATION_ID = "antiChaosSuggestions";
+const SUGGESTION_NOTIFICATION_STATE_KEY = "antiChaosSuggestionNotificationState";
+const NOTIFICATION_PERMISSION = "notifications";
 const TAB_GROUP_ID_NONE = -1;
 
 const DEFAULT_SETTINGS = {
-  autoGroup: false,
+  autoGroup: true,
   threshold: 8,
   minGroupSize: 2,
   scope: "currentWindow",
   language: "auto",
   ignorePinned: true,
   collapseGroups: false,
+  notifySuggestions: false,
 };
 
 const COLORS = {
@@ -176,6 +180,7 @@ let autoGroupTimer = null;
 let lastAutoGroupAt = 0;
 let groupingInProgress = false;
 let contextMenuSetupPromise = null;
+let notificationListenersRegistered = false;
 let lastFocusedWindowId = null;
 const activeGroupByWindowId = new Map();
 const preferredOpenGroupByWindowId = new Map();
@@ -191,6 +196,186 @@ function resolveDisplayLanguage(settings = {}) {
 
 function tr(language, key, values) {
   return AntiChaosI18n.t(language, key, values);
+}
+
+async function hasNotificationPermission() {
+  if (!chrome.permissions?.contains) return false;
+
+  return new Promise((resolve) => {
+    try {
+      chrome.permissions.contains(
+        { permissions: [NOTIFICATION_PERMISSION] },
+        (granted) => resolve(Boolean(granted)),
+      );
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+function createNotification(notificationId, options) {
+  return new Promise((resolve, reject) => {
+    if (!chrome.notifications?.create) {
+      reject(new Error("Notifications API is not available."));
+      return;
+    }
+
+    try {
+      chrome.notifications.create(notificationId, options, (createdId) => {
+        const lastError = chrome.runtime.lastError;
+        if (lastError) {
+          reject(new Error(lastError.message));
+          return;
+        }
+
+        resolve(createdId);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function clearNotification(notificationId) {
+  return new Promise((resolve) => {
+    if (!chrome.notifications?.clear) {
+      resolve(false);
+      return;
+    }
+
+    try {
+      chrome.notifications.clear(notificationId, (wasCleared) => {
+        resolve(Boolean(wasCleared));
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
+async function removeSuggestionNotificationState() {
+  try {
+    await notificationStateStorage().remove(SUGGESTION_NOTIFICATION_STATE_KEY);
+  } catch {
+    await new Promise((resolve) => {
+      notificationStateStorage().remove(SUGGESTION_NOTIFICATION_STATE_KEY, () => resolve());
+    });
+  }
+}
+
+function ensureNotificationListeners() {
+  if (notificationListenersRegistered || !chrome.notifications) return;
+
+  chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+    if (notificationId !== SUGGESTION_NOTIFICATION_ID || buttonIndex !== 0) return;
+    handleSuggestionNotificationAccepted().catch((error) =>
+      console.warn("Anti-chaos tabs: failed to handle notification action", error),
+    );
+  });
+
+  chrome.notifications.onClicked.addListener((notificationId) => {
+    if (notificationId !== SUGGESTION_NOTIFICATION_ID) return;
+    handleSuggestionNotificationAccepted().catch((error) =>
+      console.warn("Anti-chaos tabs: failed to handle notification click", error),
+    );
+  });
+
+  notificationListenersRegistered = true;
+}
+
+async function canUseNotifications() {
+  if (!chrome.notifications || !(await hasNotificationPermission())) {
+    return false;
+  }
+
+  ensureNotificationListeners();
+  return true;
+}
+
+const notificationStateStorage = () => chrome.storage.session || chrome.storage.local;
+
+async function getSuggestionNotificationState() {
+  const stored = await notificationStateStorage().get(SUGGESTION_NOTIFICATION_STATE_KEY);
+  return stored[SUGGESTION_NOTIFICATION_STATE_KEY] || {};
+}
+
+async function setSuggestionNotificationState(state) {
+  await notificationStateStorage().set({
+    [SUGGESTION_NOTIFICATION_STATE_KEY]: state,
+  });
+}
+
+async function clearSuggestionNotification(resetState = true) {
+  if (resetState) {
+    await removeSuggestionNotificationState();
+  }
+
+  await clearNotification(SUGGESTION_NOTIFICATION_ID);
+}
+
+function suggestionNotificationSignature(status) {
+  const groupSignature = (status.groups || [])
+    .map((group) => `${group.title}:${group.count}`)
+    .join("|");
+
+  return [
+    status.settings.scope,
+    status.settings.threshold,
+    status.settings.minGroupSize,
+    status.totalTabs,
+    status.groupCount,
+    status.groupedTabs,
+    groupSignature,
+  ].join("::");
+}
+
+async function maybeNotifySuggestions(status) {
+  const settings = status.settings;
+
+  if (settings.autoGroup || !settings.notifySuggestions || !status.canSuggest) {
+    await clearSuggestionNotification();
+    return;
+  }
+
+  if (!(await canUseNotifications())) return;
+
+  const signature = suggestionNotificationSignature(status);
+  const notificationState = await getSuggestionNotificationState();
+
+  if (notificationState.signature === signature) return;
+
+  const language = resolveDisplayLanguage(settings);
+
+  try {
+    await createNotification(SUGGESTION_NOTIFICATION_ID, {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
+      title: tr(language, "notification.suggestions.title"),
+      message: tr(language, "notification.suggestions.message", {
+        tabCount: status.groupedTabs,
+        groupCount: status.groupCount,
+      }),
+      contextMessage: "Anti-chaos tabs",
+      buttons: [
+        {
+          title: tr(language, "notification.suggestions.groupButton"),
+        },
+      ],
+      priority: 1,
+    });
+
+    await setSuggestionNotificationState({
+      signature,
+      shownAt: Date.now(),
+    });
+  } catch (error) {
+    console.warn("Anti-chaos tabs: failed to show suggestion notification", error);
+  }
+}
+
+async function handleSuggestionNotificationAccepted() {
+  await clearSuggestionNotification(false);
+  await groupTabsNow();
 }
 
 function normalizeSettings(raw = {}) {
@@ -211,6 +396,7 @@ function normalizeSettings(raw = {}) {
         : "auto",
     ignorePinned: raw.ignorePinned !== false,
     collapseGroups: Boolean(raw.collapseGroups),
+    notifySuggestions: Boolean(raw.notifySuggestions),
   };
 }
 
@@ -1192,6 +1378,7 @@ async function analyzeTabs(settings = null) {
     groupCount: previewGroups.length,
     groupedTabs: previewGroups.reduce((sum, group) => sum + group.count, 0),
     canSuggest: tabs.length >= normalized.threshold && previewGroups.length > 0,
+    notificationPermissionGranted: await hasNotificationPermission(),
     groups: previewGroups,
   };
 }
@@ -1273,6 +1460,7 @@ async function groupTabsNow(settings = null) {
 
     const status = await analyzeTabs(normalized);
     await updateBadge(status);
+    await clearSuggestionNotification(false);
     return status;
   } finally {
     groupingInProgress = false;
@@ -1295,6 +1483,7 @@ async function ungroupManagedTabs() {
   await chrome.storage.local.set({ [MANAGED_GROUPS_KEY]: [] });
   const status = await analyzeTabs();
   await updateBadge(status);
+  await clearSuggestionNotification();
   return status;
 }
 
@@ -1333,8 +1522,11 @@ function scheduleAutoGroup() {
 
       if (!settings.autoGroup) {
         await updateBadge(status);
+        await maybeNotifySuggestions(status);
         return;
       }
+
+      await clearSuggestionNotification();
 
       const now = Date.now();
       if (now - lastAutoGroupAt < 5000) {
@@ -1374,6 +1566,7 @@ chrome.runtime.onStartup.addListener(() => {
 ensureContextMenus().catch((error) =>
   console.warn("Anti-chaos tabs: failed to set up context menus", error),
 );
+ensureNotificationListeners();
 
 chrome.tabs.onCreated.addListener(() => scheduleAutoGroup());
 chrome.tabs.onRemoved.addListener(() => scheduleAutoGroup());
@@ -1466,6 +1659,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       await applyCollapsePreferenceToVisibleGroups(settings);
       const status = await analyzeTabs(settings);
       await updateBadge(status);
+      await maybeNotifySuggestions(status);
       return status;
     }
 

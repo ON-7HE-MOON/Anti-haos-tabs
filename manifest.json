@@ -2,10 +2,14 @@
   "manifest_version": 3,
   "name": "__MSG_appName__",
   "description": "__MSG_appDescription__",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "default_locale": "en",
   "minimum_chrome_version": "102",
-  "permissions": ["tabs", "tabGroups", "storage", "windows", "contextMenus"],
+  "permissions": ["tabs", "tabGroups", "storage", "contextMenus"],
+  "optional_permissions": ["notifications"],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'"
+  },
   "icons": {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",

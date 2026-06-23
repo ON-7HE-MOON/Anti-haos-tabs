@@ -15,6 +15,7 @@ const nodes = {
   openSettings: document.querySelector("#openSettings"),
   backToMain: document.querySelector("#backToMain"),
   autoGroup: document.querySelector("#autoGroup"),
+  notifySuggestions: document.querySelector("#notifySuggestions"),
   language: document.querySelector("#language"),
   scope: document.querySelector("#scope"),
   threshold: document.querySelector("#threshold"),
@@ -38,6 +39,41 @@ function send(type, payload = {}) {
     }
 
     return response.payload;
+  });
+}
+
+function requestExtensionPermission(permission) {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.permissions.request({ permissions: [permission] }, (granted) => {
+        const lastError = chrome.runtime.lastError;
+        if (lastError) {
+          reject(new Error(lastError.message));
+          return;
+        }
+
+        resolve(Boolean(granted));
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function removeExtensionPermission(permission) {
+  return new Promise((resolve) => {
+    if (!chrome.permissions?.remove) {
+      resolve(false);
+      return;
+    }
+
+    try {
+      chrome.permissions.remove({ permissions: [permission] }, (removed) => {
+        resolve(Boolean(removed));
+      });
+    } catch {
+      resolve(false);
+    }
   });
 }
 
@@ -67,6 +103,7 @@ function settingsFromInputs() {
     minGroupSize: Number.parseInt(nodes.minGroupSize.value, 10),
     ignorePinned: nodes.ignorePinned.checked,
     collapseGroups: nodes.collapseGroups.checked,
+    notifySuggestions: nodes.notifySuggestions.checked,
   };
 }
 
@@ -87,9 +124,12 @@ function localizeStatic(settings = currentSettings) {
   }
 }
 
-function applySettings(settings) {
+function applySettings(settings, notificationPermissionGranted = true) {
   currentSettings = settings;
   nodes.autoGroup.checked = settings.autoGroup;
+  nodes.notifySuggestions.checked = Boolean(
+    settings.notifySuggestions && notificationPermissionGranted,
+  );
   nodes.language.value = settings.language;
   nodes.scope.value = settings.scope;
   nodes.threshold.value = settings.threshold;
@@ -99,72 +139,109 @@ function applySettings(settings) {
   localizeStatic(settings);
 }
 
-function escapeText(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+const GROUP_COLOR_CLASSES = new Set([
+  "blue",
+  "orange",
+  "red",
+  "green",
+  "purple",
+  "pink",
+  "cyan",
+  "yellow",
+  "grey",
+]);
+
+function emptyState(message) {
+  const empty = document.createElement("div");
+  empty.className = "empty";
+  empty.textContent = message;
+  return empty;
+}
+
+function colorDot(color) {
+  const dot = document.createElement("span");
+  dot.className = "colorDot";
+
+  if (GROUP_COLOR_CLASSES.has(color)) {
+    dot.classList.add(color);
+  }
+
+  return dot;
 }
 
 function renderGroups(groups) {
-  nodes.groups.innerHTML = "";
+  nodes.groups.replaceChildren();
 
   if (!groups.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = t("popup.groups.empty");
-    nodes.groups.append(empty);
+    nodes.groups.append(emptyState(t("popup.groups.empty")));
     return;
   }
 
   for (const group of groups) {
     const card = document.createElement("article");
     card.className = "groupCard";
-    card.innerHTML = `
-      <span class="colorDot ${escapeText(group.color)}"></span>
-      <div>
-        <div class="groupTitle" title="${escapeText(group.title)}">${escapeText(group.title)}</div>
-        <div class="groupReason">${escapeText(group.reason)}</div>
-        <div class="samples">
-          ${group.samples
-            .map(
-              (sample) =>
-                `<div class="sample" title="${escapeText(sample.title)}">${escapeText(sample.title)} &middot; ${escapeText(sample.domain)}</div>`,
-            )
-            .join("")}
-        </div>
-      </div>
-      <span class="countBadge">${group.count}</span>
-    `;
+
+    const body = document.createElement("div");
+
+    const title = document.createElement("div");
+    title.className = "groupTitle";
+    title.title = group.title || "";
+    title.textContent = group.title || "";
+
+    const reason = document.createElement("div");
+    reason.className = "groupReason";
+    reason.textContent = group.reason || "";
+
+    const samples = document.createElement("div");
+    samples.className = "samples";
+
+    for (const sample of group.samples || []) {
+      const sampleNode = document.createElement("div");
+      sampleNode.className = "sample";
+      sampleNode.title = sample.title || "";
+      sampleNode.textContent = [sample.title, sample.domain]
+        .filter(Boolean)
+        .join(" \u00b7 ");
+      samples.append(sampleNode);
+    }
+
+    const count = document.createElement("span");
+    count.className = "countBadge";
+    count.textContent = String(group.count || 0);
+
+    body.append(title, reason, samples);
+    card.append(colorDot(group.color), body, count);
     nodes.groups.append(card);
   }
 }
 
 function renderGroupLocks(groups) {
-  nodes.groupLocks.innerHTML = "";
+  nodes.groupLocks.replaceChildren();
 
   if (!groups.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = t("popup.groupLocks.empty");
-    nodes.groupLocks.append(empty);
+    nodes.groupLocks.append(emptyState(t("popup.groupLocks.empty")));
     return;
   }
 
   for (const group of groups) {
     const row = document.createElement("label");
     row.className = "groupLockRow";
-    row.innerHTML = `
-      <span class="colorDot ${escapeText(group.color)}"></span>
-      <span>
-        <span class="groupLockTitle" title="${escapeText(group.title)}">${escapeText(group.title)}</span>
-        <span class="groupLockMeta">${t("popup.groupLocks.tabs", { count: group.tabCount })}</span>
-      </span>
-      <input type="checkbox" ${group.locked ? "checked" : ""} />
-    `;
 
-    const input = row.querySelector("input");
+    const body = document.createElement("span");
+
+    const title = document.createElement("span");
+    title.className = "groupLockTitle";
+    title.title = group.title || "";
+    title.textContent = group.title || "";
+
+    const meta = document.createElement("span");
+    meta.className = "groupLockMeta";
+    meta.textContent = t("popup.groupLocks.tabs", { count: group.tabCount });
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = Boolean(group.locked);
+
     input.addEventListener("change", async () => {
       input.disabled = true;
       try {
@@ -180,6 +257,8 @@ function renderGroupLocks(groups) {
       }
     });
 
+    body.append(title, meta);
+    row.append(colorDot(group.color), body, input);
     nodes.groupLocks.append(row);
   }
 }
@@ -188,16 +267,12 @@ async function refreshGroupLocks() {
   try {
     renderGroupLocks(await send("GET_GROUP_LOCKS"));
   } catch (error) {
-    nodes.groupLocks.innerHTML = "";
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = error.message;
-    nodes.groupLocks.append(empty);
+    nodes.groupLocks.replaceChildren(emptyState(error.message));
   }
 }
 
 function renderStatus(status) {
-  applySettings(status.settings);
+  applySettings(status.settings, status.notificationPermissionGranted);
   nodes.totalTabs.textContent = status.totalTabs;
   nodes.groupCount.textContent = status.groupCount;
   nodes.groupedTabs.textContent = status.groupedTabs;
@@ -246,6 +321,49 @@ function scheduleSave() {
   }, 250);
 }
 
+async function handleNotificationPreferenceChange() {
+  if (!currentSettings) return;
+  clearTimeout(savingTimer);
+
+  const wantsNotifications = nodes.notifySuggestions.checked;
+  let permissionDenied = false;
+  nodes.notifySuggestions.disabled = true;
+  setBusy(true);
+
+  try {
+    if (wantsNotifications) {
+      if (!chrome.permissions?.request) {
+        throw new Error(t("popup.error.notificationsUnavailable"));
+      }
+
+      const granted = await requestExtensionPermission("notifications");
+
+      if (!granted) {
+        permissionDenied = true;
+        nodes.notifySuggestions.checked = false;
+      }
+    }
+
+    const status = await send("SET_SETTINGS", { settings: settingsFromInputs() });
+
+    if (!wantsNotifications && chrome.permissions?.remove) {
+      await removeExtensionPermission("notifications");
+    }
+
+    renderStatus(status);
+
+    if (permissionDenied) {
+      nodes.subtitle.textContent = t("popup.status.notificationsDenied");
+    }
+  } catch (error) {
+    nodes.notifySuggestions.checked = Boolean(currentSettings?.notifySuggestions);
+    nodes.subtitle.textContent = error.message;
+  } finally {
+    nodes.notifySuggestions.disabled = false;
+    setBusy(false);
+  }
+}
+
 nodes.groupNow.addEventListener("click", async () => {
   setBusy(true);
   nodes.subtitle.textContent = t("popup.status.grouping");
@@ -291,6 +409,8 @@ for (const input of [
 ]) {
   input.addEventListener("change", scheduleSave);
 }
+
+nodes.notifySuggestions.addEventListener("change", handleNotificationPreferenceChange);
 
 localizeStatic({ language: "auto" });
 refreshStatus();
